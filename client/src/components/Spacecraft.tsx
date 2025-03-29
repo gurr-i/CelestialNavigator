@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSpaceStore } from "../lib/stores/useSpaceStore";
@@ -9,19 +9,20 @@ interface SpacecraftProps {
 
 const Spacecraft: React.FC<SpacecraftProps> = ({ position }) => {
   const spacecraftRef = useRef<THREE.Group>(null);
-  const toggleFollow = useKeyboardControls(state => state.toggle);
   const followSpacecraft = useSpaceStore(state => state.followSpacecraft);
   const setFollowSpacecraft = useSpaceStore(state => state.setFollowSpacecraft);
 
-  // Toggle spacecraft following
-  useKeyboardControls(
-    state => state.toggle,
-    value => {
-      if (value) {
+  // Toggle spacecraft following with T key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyT') {
         setFollowSpacecraft(!followSpacecraft);
       }
-    }
-  );
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [followSpacecraft, setFollowSpacecraft]);
 
   // Basic movement pattern
   useFrame(({ clock }) => {
@@ -73,7 +74,5 @@ const Spacecraft: React.FC<SpacecraftProps> = ({ position }) => {
     </group>
   );
 };
-
-import { useKeyboardControls } from "@react-three/drei";
 
 export default Spacecraft;

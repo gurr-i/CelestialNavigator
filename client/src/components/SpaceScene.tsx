@@ -12,8 +12,8 @@ import { useSpaceStore } from "../lib/stores/useSpaceStore";
 import { SOLAR_SYSTEM } from "../assets/planet-data";
 
 const SpaceScene = () => {
-  const { camera } = useThree();
-  const cameraRef = useRef<THREE.PerspectiveCamera>();
+  const { camera, gl } = useThree();
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const targetRef = useRef(new THREE.Vector3(0, 0, 0));
   const orbitSpeed = useRef(0.001);
   
@@ -34,6 +34,23 @@ const SpaceScene = () => {
   const moveSpeed = 2.0;
   const zoomSpeed = 5.0;
   
+  // Disable touchpad zooming
+  useEffect(() => {
+    const preventZoom = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+      }
+    };
+    
+    document.addEventListener('wheel', preventZoom, { passive: false });
+    gl.domElement.addEventListener('wheel', preventZoom, { passive: false });
+    
+    return () => {
+      document.removeEventListener('wheel', preventZoom);
+      gl.domElement.removeEventListener('wheel', preventZoom);
+    };
+  }, [gl]);
+  
   // Set the scene as loaded after a short delay
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -48,11 +65,19 @@ const SpaceScene = () => {
     if (focusedBody) {
       const bodyData = SOLAR_SYSTEM.find(body => body.id === focusedBody);
       if (bodyData) {
-        targetRef.current.set(
-          bodyData.position[0],
-          bodyData.position[1],
-          bodyData.position[2]
-        );
+        // Account for the body's current orbital position
+        if (bodyData.orbitRadius && bodyData.orbitSpeed && bodyData.orbitCenter) {
+          const time = Date.now() * bodyData.orbitSpeed * 0.001;
+          const x = bodyData.orbitCenter[0] + Math.cos(time) * bodyData.orbitRadius;
+          const z = bodyData.orbitCenter[2] + Math.sin(time) * bodyData.orbitRadius;
+          targetRef.current.set(x, bodyData.position[1], z);
+        } else {
+          targetRef.current.set(
+            bodyData.position[0],
+            bodyData.position[1],
+            bodyData.position[2]
+          );
+        }
         
         // Adjust orbit speed based on the body type
         if (bodyData.type === "star") {
@@ -81,6 +106,8 @@ const SpaceScene = () => {
     // Create perpendicular vectors for movement
     const right = new THREE.Vector3();
     right.crossVectors(cameraDirection, cameraRef.current.up).normalize();
+    
+    const up = new THREE.Vector3(0, 1, 0);
     
     // Move camera based on input
     if (forward) {
@@ -111,10 +138,21 @@ const SpaceScene = () => {
         if (bodyData) {
           // Position camera at an appropriate distance from the body
           const distance = (bodyData.radius || 1) * 5 + cameraDistance;
+          
+          // Calculate the current position of orbiting bodies
+          let posX = bodyData.position[0];
+          let posZ = bodyData.position[2];
+          
+          if (bodyData.orbitRadius && bodyData.orbitSpeed && bodyData.orbitCenter) {
+            const time = Date.now() * bodyData.orbitSpeed * 0.001;
+            posX = bodyData.orbitCenter[0] + Math.cos(time) * bodyData.orbitRadius;
+            posZ = bodyData.orbitCenter[2] + Math.sin(time) * bodyData.orbitRadius;
+          }
+          
           cameraRef.current.position.set(
-            bodyData.position[0] + distance,
+            posX + distance,
             bodyData.position[1] + distance * 0.5,
-            bodyData.position[2] + distance
+            posZ + distance
           );
         }
       } else {
@@ -143,13 +181,13 @@ const SpaceScene = () => {
       />
       
       {/* Ambient light */}
-      <ambientLight intensity={0.1} />
+      <ambientLight intensity={0.2} />
       
       {/* Sun (central bright light) */}
-      <pointLight position={[0, 0, 0]} intensity={1.5} color="#FFA726" castShadow />
+      <pointLight position={[0, 0, 0]} intensity={2} color="#FFA726" castShadow />
       
       {/* Stars background */}
-      <Stars radius={1000} depth={50} count={5000} factor={4} saturation={0} fade />
+      <Stars radius={1000} depth={50} count={7000} factor={4} saturation={0} fade />
       
       {/* Render all celestial bodies */}
       {SOLAR_SYSTEM.map(body => (
