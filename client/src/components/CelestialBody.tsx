@@ -24,6 +24,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   const meshRef = useRef<THREE.Mesh>(null);
   const focusedBody = useSpaceStore(state => state.focusedBody);
   const setFocusedBody = useSpaceStore(state => state.setFocusedBody);
+  const setHoveredBody = useSpaceStore(state => state.setHoveredBody);
   
   // Default textures based on planet type
   const getDefaultTexture = () => {
@@ -376,7 +377,21 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       
       {/* Use position prop only for bodies that don't orbit (e.g., Sun) */}
       <group position={orbitSpeed > 0 ? [0, 0, 0] : position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
-        <Sphere args={[radius, 64, 32]} ref={meshRef} onClick={handleClick}>
+        <Sphere 
+          args={[radius, 64, 32]} 
+          ref={meshRef} 
+          onClick={handleClick}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHoveredBody(id);
+            document.body.style.cursor = 'pointer';
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            setHoveredBody(null);
+            document.body.style.cursor = 'auto';
+          }}
+        >
           <primitive object={material} attach="material" />
         </Sphere>
         

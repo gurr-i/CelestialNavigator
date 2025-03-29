@@ -11,6 +11,7 @@ import InfoPanel from "./components/ui/InfoPanel";
 import Navigation from "./components/ui/Navigation";
 import TimeControls from "./components/ui/TimeControls";
 import EducationalPanel from "./components/educational/EducationalPanel";
+import PlanetTooltip from "./components/ui/PlanetTooltip";
 
 // Define control keys for navigation
 const controls = [
@@ -29,6 +30,7 @@ function App() {
   const { setBackgroundMusic } = useAudio();
   const isEducationalPanelOpen = useSpaceStore(state => state.isEducationalPanelOpen);
   const setEducationalPanelOpen = useSpaceStore(state => state.setEducationalPanelOpen);
+  const hoveredBody = useSpaceStore(state => state.hoveredBody);
 
   // Set up background music
   useEffect(() => {
@@ -71,6 +73,7 @@ function App() {
         <Navigation />
         <TimeControls />
         <LoadingScreen />
+        <PlanetTooltip hoveredObjectId={hoveredBody} />
         <EducationalPanel 
           isOpen={isEducationalPanelOpen} 
           onClose={() => setEducationalPanelOpen(false)} 
