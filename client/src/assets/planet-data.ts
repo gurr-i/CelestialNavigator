@@ -23,7 +23,7 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     position: [35, 0, 0],
     radius: 2,
     rotationSpeed: 0.0005,
-    orbitSpeed: 0.08,  // Increased speed
+    orbitSpeed: 0.15,     // Much faster for better visualization
     orbitRadius: 35,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/mercury.jpg",
@@ -41,8 +41,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [50, 0, 0],
     radius: 3.8,
-    rotationSpeed: 0.0002, // Slow rotation (retrograde in reality)
-    orbitSpeed: 0.06,     // Increased speed
+    rotationSpeed: -0.0002, // Retrograde rotation (negative value)
+    orbitSpeed: 0.12,     // Faster for better visualization
     orbitRadius: 50,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/venus.jpg",
@@ -60,8 +60,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [70, 0, 0],
     radius: 4,
-    rotationSpeed: 0.005,  // Faster rotation to be visible
-    orbitSpeed: 0.05,     // Adjusted speed
+    rotationSpeed: 0.01,   // Faster rotation to be visible
+    orbitSpeed: 0.1,      // Faster for better visualization
     orbitRadius: 70,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/earth.jpg",
@@ -80,7 +80,7 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     position: [76, 0, 0],
     radius: 1.1,
     rotationSpeed: 0.001,
-    orbitSpeed: 0.2,      // Fast orbit around Earth
+    orbitSpeed: 0.4,      // Very fast orbit around Earth (synchronized with Earth's rotation)
     orbitRadius: 10,      // Larger radius to be more visible
     orbitCenter: [70, 0, 0], // Earth's initial position
     textureUrl: "/textures/planets/moon.jpg",
@@ -97,8 +97,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [90, 0, 0],
     radius: 3.5,
-    rotationSpeed: 0.005,  // Similar to Earth
-    orbitSpeed: 0.04,     // Adjusted speed
+    rotationSpeed: 0.01,   // Similar to Earth
+    orbitSpeed: 0.08,     // Faster for better visualization
     orbitRadius: 90,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/mars.jpg",
@@ -116,8 +116,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [130, 0, 0],
     radius: 8,
-    rotationSpeed: 0.01,   // Fast rotation (Jupiter rotates quickly)
-    orbitSpeed: 0.02,     // Slower than inner planets
+    rotationSpeed: 0.02,   // Fast rotation (Jupiter rotates quickly)
+    orbitSpeed: 0.06,     // Adjusted for better visualization
     orbitRadius: 130,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/jupiter.jpg",
@@ -135,8 +135,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [170, 0, 0],
     radius: 7,
-    rotationSpeed: 0.009,  // Fast rotation
-    orbitSpeed: 0.015,    // Slower orbit
+    rotationSpeed: 0.018,  // Fast rotation
+    orbitSpeed: 0.04,     // Adjusted for better visualization
     orbitRadius: 170,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/saturn.jpg",
@@ -154,8 +154,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [200, 0, 0],
     radius: 5.5,
-    rotationSpeed: 0.006,  // Uranus has a unique rotation (on its side)
-    orbitSpeed: 0.01,     // Slower orbit
+    rotationSpeed: 0.012,  // Uranus has a unique rotation (on its side)
+    orbitSpeed: 0.03,     // Adjusted for better visualization
     orbitRadius: 200,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/uranus.jpg",
@@ -173,8 +173,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "planet",
     position: [230, 0, 0],
     radius: 5.3,
-    rotationSpeed: 0.007,
-    orbitSpeed: 0.008,    // Slowest planet
+    rotationSpeed: 0.014,
+    orbitSpeed: 0.025,    // Adjusted for better visualization
     orbitRadius: 230,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/neptune.jpg",
@@ -192,8 +192,8 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     type: "dwarf",
     position: [260, 0, 0],
     radius: 1,
-    rotationSpeed: 0.003,
-    orbitSpeed: 0.005,    // Very slow orbit
+    rotationSpeed: 0.006,
+    orbitSpeed: 0.02,     // Adjusted for better visualization
     orbitRadius: 260,
     orbitCenter: [0, 0, 0],
     textureUrl: "/textures/planets/pluto.jpg",
@@ -210,9 +210,9 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "International Space Station",
     type: "spacecraft",
     position: [70, 6, 0],
-    radius: 0.3,
-    rotationSpeed: 0.01,
-    orbitSpeed: 0.3,      // Very fast orbit (low Earth orbit)
+    radius: 0.5,         // Make it a bit larger to be more visible
+    rotationSpeed: 0.02,
+    orbitSpeed: 0.6,      // Very fast orbit (low Earth orbit)
     orbitRadius: 8,       // Close orbit around Earth
     orbitCenter: [70, 0, 0], // Earth's initial position
     description: "The International Space Station is a modular space station in low Earth orbit. It serves as a microgravity and space environment research laboratory."
@@ -224,10 +224,10 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "James Webb Telescope",
     type: "spacecraft",
     position: [100, 10, 30],
-    radius: 0.4,
-    rotationSpeed: 0.005,
-    orbitSpeed: 0.015,    // Similar to Earth's L2 point orbit
-    orbitRadius: 15,
+    radius: 0.6,         // Make it a bit larger to be more visible
+    rotationSpeed: 0.01,
+    orbitSpeed: 0.05,     // Similar to Earth's L2 point orbit
+    orbitRadius: 20,      // Larger orbit to be more visible
     orbitCenter: [70, 0, 0], // Around Earth's orbit
     description: "The James Webb Space Telescope is a space telescope designed to observe the infrared universe, allowing for unprecedented astronomical observations."
   }

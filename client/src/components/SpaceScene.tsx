@@ -3,7 +3,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { 
   Stars, 
   useKeyboardControls, 
-  PerspectiveCamera 
+  PerspectiveCamera,
+  OrbitControls 
 } from "@react-three/drei";
 import * as THREE from "three";
 import CelestialBody from "./CelestialBody";
@@ -34,22 +35,23 @@ const SpaceScene = () => {
   const moveSpeed = 2.0;
   const zoomSpeed = 5.0;
   
-  // Disable touchpad zooming
+  // Reference for OrbitControls
+  const orbitControlsRef = useRef<any>(null);
+  
+  // Enable mouse and touchpad controls while still preventing browser zoom
   useEffect(() => {
-    const preventZoom = (e: WheelEvent) => {
+    const preventBrowserZoom = (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault();
       }
     };
     
-    document.addEventListener('wheel', preventZoom, { passive: false });
-    gl.domElement.addEventListener('wheel', preventZoom, { passive: false });
+    document.addEventListener('wheel', preventBrowserZoom, { passive: false });
     
     return () => {
-      document.removeEventListener('wheel', preventZoom);
-      gl.domElement.removeEventListener('wheel', preventZoom);
+      document.removeEventListener('wheel', preventBrowserZoom);
     };
-  }, [gl]);
+  }, []);
   
   // Set the scene as loaded after a short delay
   useEffect(() => {
@@ -97,14 +99,13 @@ const SpaceScene = () => {
     }
   }, [focusedBody]);
 
-  // Handle camera controls
+  // Handle body positions and keyboard camera controls
   useFrame((state, delta) => {
     if (!cameraRef.current) return;
     
-    // Update the target position for the focused body if it's orbiting
-    if (focusedBody) {
-      const bodyData = SOLAR_SYSTEM.find(body => body.id === focusedBody);
-      if (bodyData && bodyData.orbitSpeed && bodyData.orbitRadius && bodyData.orbitCenter) {
+    // Update the positions of all orbiting bodies for tracking and targeting
+    SOLAR_SYSTEM.forEach(bodyData => {
+      if (bodyData.orbitSpeed && bodyData.orbitRadius && bodyData.orbitCenter) {
         // Use the clock for consistent orbit animation
         const time = state.clock.getElapsedTime() * bodyData.orbitSpeed * 5;
         
@@ -125,17 +126,25 @@ const SpaceScene = () => {
         const y = bodyData.orbitCenter[1] + Math.sin(time) * Math.sin(orbitAngle) * bodyData.orbitRadius;
         const z = bodyData.orbitCenter[2] + Math.sin(time) * Math.cos(orbitAngle) * bodyData.orbitRadius;
         
-        // Update the target for the camera to look at
-        targetRef.current.set(x, y, z);
-        
         // Store this position for other calculations
         bodyRefs.current[bodyData.id] = new THREE.Vector3(x, y, z);
+        
+        // If this is the focused body, update orbit controls target
+        if (focusedBody === bodyData.id && orbitControlsRef.current) {
+          orbitControlsRef.current.target.set(x, y, z);
+        }
       }
-    }
+    });
+    
+    // Keyboard controls still work alongside mouse controls
     
     // Create a vector pointing from camera to target
+    const target = focusedBody ? 
+      bodyRefs.current[focusedBody] || new THREE.Vector3(0, 0, 0) :
+      new THREE.Vector3(0, 0, 0);
+      
     const cameraDirection = new THREE.Vector3();
-    cameraDirection.subVectors(targetRef.current, cameraRef.current.position).normalize();
+    cameraDirection.subVectors(target, cameraRef.current.position).normalize();
     
     // Create perpendicular vectors for movement
     const right = new THREE.Vector3();
@@ -143,7 +152,7 @@ const SpaceScene = () => {
     
     const up = new THREE.Vector3(0, 1, 0);
     
-    // Move camera based on input
+    // Move camera based on keyboard input
     if (forward) {
       cameraRef.current.position.addScaledVector(cameraDirection, moveSpeed * delta * 50);
     }
@@ -157,7 +166,7 @@ const SpaceScene = () => {
       cameraRef.current.position.addScaledVector(right, moveSpeed * delta * 50);
     }
     
-    // Zoom controls
+    // Zoom controls with keyboard
     if (zoomIn) {
       cameraRef.current.position.addScaledVector(cameraDirection, zoomSpeed * delta * 50);
     }
@@ -173,7 +182,7 @@ const SpaceScene = () => {
           // Position camera at an appropriate distance from the body
           const distance = (bodyData.radius || 1) * 5 + cameraDistance;
           
-          // Get current position (may be updated from orbit)
+          // Get current position (updated from orbit calculations above)
           const bodyPosition = bodyRefs.current[bodyData.id] || 
                               new THREE.Vector3(
                                 bodyData.position[0], 
@@ -181,25 +190,43 @@ const SpaceScene = () => {
                                 bodyData.position[2]
                               );
           
+          // Set camera position
           cameraRef.current.position.set(
             bodyPosition.x + distance,
             bodyPosition.y + distance * 0.5,
             bodyPosition.z + distance
           );
+          
+          // Update orbit controls target
+          if (orbitControlsRef.current) {
+            orbitControlsRef.current.target.copy(bodyPosition);
+          }
         }
       } else {
         // Default reset position
         cameraRef.current.position.set(0, 30, 100);
+        
+        // Reset orbit controls target to sun
+        if (orbitControlsRef.current) {
+          orbitControlsRef.current.target.set(0, 0, 0);
+        }
       }
     }
-    
-    // Always look at the current target
-    cameraRef.current.lookAt(targetRef.current);
-    
-    // Apply the same transform to the actual three.js camera
-    camera.position.copy(cameraRef.current.position);
-    camera.quaternion.copy(cameraRef.current.quaternion);
   });
+
+  // Effect to update orbit controls target when focus changes
+  useEffect(() => {
+    if (orbitControlsRef.current && focusedBody) {
+      const bodyData = SOLAR_SYSTEM.find(body => body.id === focusedBody);
+      if (bodyData) {
+        // Set the target to the current body position
+        const position = bodyRefs.current[bodyData.id] || 
+                    new THREE.Vector3(bodyData.position[0], bodyData.position[1], bodyData.position[2]);
+        
+        orbitControlsRef.current.target.copy(position);
+      }
+    }
+  }, [focusedBody]);
 
   return (
     <>
@@ -210,6 +237,20 @@ const SpaceScene = () => {
         fov={45}
         near={0.1}
         far={10000}
+      />
+      
+      {/* Add OrbitControls for mouse/touchpad interaction */}
+      <OrbitControls
+        ref={orbitControlsRef}
+        enablePan={true}
+        enableZoom={true}
+        enableRotate={true}
+        zoomSpeed={1.0}
+        rotateSpeed={0.8}
+        panSpeed={0.8}
+        minDistance={30}
+        maxDistance={1000}
+        target={[0, 0, 0]}
       />
       
       {/* Ambient light - increased to make planets more visible */}
