@@ -333,6 +333,9 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           // Extract Earth's current position for the Moon to orbit around
           const earthWorldPosition = new THREE.Vector3();
           earthObjects.getWorldPosition(earthWorldPosition);
+          // Update orbit parameters for Moon
+          orbitRadius = 12; // Increase orbit radius to be more visible
+          orbitSpeed = 0.5; // Adjust speed relative to Earth
           effectiveOrbitCenter = [
             earthWorldPosition.x, 
             earthWorldPosition.y, 
