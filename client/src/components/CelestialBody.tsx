@@ -239,6 +239,9 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     return null;
   }, [orbitCenter, orbitRadius, orbitSpeed, eccentricity, orbitTilt, type, id]);
   
+  // Handle initial position alignment with orbit
+  const initialPositionRef = useRef<boolean>(false);
+  
   // Handle orbiting and rotation
   useFrame((state, delta) => {
     if (!meshRef.current) return;
@@ -271,10 +274,6 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
-      // Use elapsed time from the clock for consistent animation
-      const time = state.clock.getElapsedTime() * orbitSpeed * 5; // Increased speed multiplier
-      
-      // Calculate elliptical orbit position using the same function as the path generation
       const orbitParams = {
         center: orbitCenter,
         radius: orbitRadius,
@@ -282,6 +281,40 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         tilt: orbitTilt
       };
       
+      // On first render, position the planet on its orbit path
+      // We need to do this because the initial positions in planet-data.ts
+      // might not align perfectly with the calculated elliptical orbits
+      if (!initialPositionRef.current) {
+        // Place at a different starting angle based on the planet's position in the solar system
+        // This creates a more visually interesting starting arrangement
+        let initialAngle = 0;
+        
+        // Different starting angles for different planets to avoid crowding
+        if (id === "mercury") initialAngle = 0;
+        else if (id === "venus") initialAngle = 2.0;
+        else if (id === "earth") initialAngle = 4.0;
+        else if (id === "mars") initialAngle = 5.5;
+        else if (id === "jupiter") initialAngle = 1.0;
+        else if (id === "saturn") initialAngle = 3.0;
+        else if (id === "uranus") initialAngle = 0.5;
+        else if (id === "neptune") initialAngle = 2.5;
+        else if (id === "pluto") initialAngle = 4.5;
+        else if (id === "moon") initialAngle = 1.5;
+        else if (id === "iss") initialAngle = 0;
+        else if (id === "jwst") initialAngle = 3.0;
+        
+        // Calculate initial position using the angle
+        const initialPos = calculateEllipticalPosition(initialAngle, orbitParams);
+        meshRef.current.position.x = initialPos.x;
+        meshRef.current.position.y = initialPos.y;
+        meshRef.current.position.z = initialPos.z;
+        initialPositionRef.current = true;
+      }
+      
+      // Use elapsed time from the clock for consistent animation
+      const time = state.clock.getElapsedTime() * orbitSpeed * 5; // Increased speed multiplier
+      
+      // Calculate elliptical orbit position using the same function as the path generation
       const position = calculateEllipticalPosition(time, orbitParams);
       
       // Update position for orbiting
@@ -333,7 +366,8 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       {/* Render orbit path if applicable */}
       {orbitPath && orbitPath}
       
-      <group position={position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
+      {/* Use position prop only for bodies that don't orbit (e.g., Sun) */}
+      <group position={orbitSpeed > 0 ? [0, 0, 0] : position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
         <Sphere args={[radius, 64, 32]} ref={meshRef} onClick={handleClick}>
           <primitive object={material} attach="material" />
         </Sphere>
