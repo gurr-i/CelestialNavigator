@@ -107,14 +107,29 @@ const SpaceScene = () => {
       if (bodyData && bodyData.orbitSpeed && bodyData.orbitRadius && bodyData.orbitCenter) {
         // Use the clock for consistent orbit animation
         const time = state.clock.getElapsedTime() * bodyData.orbitSpeed * 5;
+        
+        // Determine the orbital plane angle from body ID
+        let orbitAngle = 0;
+        if (bodyData.id === "mercury") orbitAngle = 0.12;
+        else if (bodyData.id === "venus") orbitAngle = 0.05;
+        else if (bodyData.id === "earth") orbitAngle = 0;
+        else if (bodyData.id === "mars") orbitAngle = -0.03;
+        else if (bodyData.id === "jupiter") orbitAngle = 0.02;
+        else if (bodyData.id === "saturn") orbitAngle = -0.05;
+        else if (bodyData.id === "uranus") orbitAngle = 0.08;
+        else if (bodyData.id === "neptune") orbitAngle = -0.06;
+        else if (bodyData.id === "pluto") orbitAngle = 0.17;
+        
+        // Calculate position with orbital plane
         const x = bodyData.orbitCenter[0] + Math.cos(time) * bodyData.orbitRadius;
-        const z = bodyData.orbitCenter[2] + Math.sin(time) * bodyData.orbitRadius;
+        const y = bodyData.orbitCenter[1] + Math.sin(time) * Math.sin(orbitAngle) * bodyData.orbitRadius;
+        const z = bodyData.orbitCenter[2] + Math.sin(time) * Math.cos(orbitAngle) * bodyData.orbitRadius;
         
         // Update the target for the camera to look at
-        targetRef.current.set(x, bodyData.position[1], z);
+        targetRef.current.set(x, y, z);
         
         // Store this position for other calculations
-        bodyRefs.current[bodyData.id] = new THREE.Vector3(x, bodyData.position[1], z);
+        bodyRefs.current[bodyData.id] = new THREE.Vector3(x, y, z);
       }
     }
     
@@ -197,11 +212,15 @@ const SpaceScene = () => {
         far={10000}
       />
       
-      {/* Ambient light */}
-      <ambientLight intensity={0.2} />
+      {/* Ambient light - increased to make planets more visible */}
+      <ambientLight intensity={0.5} />
       
-      {/* Sun (central bright light) */}
-      <pointLight position={[0, 0, 0]} intensity={2} color="#FFA726" castShadow />
+      {/* Sun (central bright light) - increased intensity */}
+      <pointLight position={[0, 0, 0]} intensity={3} color="#FFA726" castShadow />
+      
+      {/* Additional lights to better illuminate dark areas */}
+      <pointLight position={[100, 50, 100]} intensity={0.8} color="#FFFFFF" />
+      <pointLight position={[-100, -50, -100]} intensity={0.8} color="#FFFFFF" />
       
       {/* Stars background */}
       <Stars radius={1000} depth={50} count={7000} factor={4} saturation={0} fade />
