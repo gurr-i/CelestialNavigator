@@ -134,8 +134,40 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     return null;
   }, [type, radius, id]);
   
+  // Create orbit path geometry
+  const orbitPath = useMemo(() => {
+    if (orbitSpeed > 0 && orbitRadius > 0) {
+      const curve = new THREE.EllipseCurve(
+        orbitCenter[0], orbitCenter[2],  // center x, z
+        orbitRadius, orbitRadius,        // xRadius, zRadius
+        0, 2 * Math.PI,                  // startAngle, endAngle
+        false,                           // clockwise
+        0                                // rotation
+      );
+      
+      const points = curve.getPoints(100);
+      const pathGeometry = new THREE.BufferGeometry().setFromPoints(
+        points.map(p => new THREE.Vector3(p.x, orbitCenter[1], p.y))
+      );
+      
+      return (
+        <line>
+          <bufferGeometry attach="geometry" {...pathGeometry} />
+          <lineBasicMaterial 
+            attach="material" 
+            color={type === 'moon' || type === 'spacecraft' ? '#4FC3F7' : '#555555'} 
+            opacity={0.3} 
+            transparent={true} 
+            linewidth={1}
+          />
+        </line>
+      );
+    }
+    return null;
+  }, [orbitCenter, orbitRadius, orbitSpeed, type]);
+
   // Handle orbiting and rotation
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!meshRef.current) return;
     
     // Rotate the body around its axis
@@ -143,9 +175,12 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
-      const time = Date.now() * orbitSpeed * 0.001;
+      // Use elapsed time from the clock for consistent animation
+      const time = state.clock.getElapsedTime() * orbitSpeed * 5; // Increased speed multiplier
       const x = orbitCenter[0] + Math.cos(time) * orbitRadius;
       const z = orbitCenter[2] + Math.sin(time) * orbitRadius;
+      
+      // Update position for orbiting
       meshRef.current.position.x = x;
       meshRef.current.position.z = z;
     }
@@ -182,29 +217,34 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   }, [id, radius]);
   
   return (
-    <group position={position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
-      <Sphere args={[radius, 64, 32]} ref={meshRef} onClick={handleClick}>
-        <primitive object={material} attach="material" />
-      </Sphere>
+    <>
+      {/* Render orbit path if applicable */}
+      {orbitPath && orbitPath}
       
-      {/* Atmosphere for planets */}
-      {atmosphere && <primitive object={atmosphere} />}
-      
-      {/* Saturn's rings */}
-      {saturnRings && <primitive object={saturnRings} />}
-      
-      {/* Simple highlight effect when focused */}
-      {isFocused && (
-        <Sphere args={[radius * 1.1, 32, 32]}>
-          <meshBasicMaterial 
-            color="#4FC3F7" 
-            transparent={true}
-            opacity={0.2}
-            wireframe={true}
-          />
+      <group position={position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
+        <Sphere args={[radius, 64, 32]} ref={meshRef} onClick={handleClick}>
+          <primitive object={material} attach="material" />
         </Sphere>
-      )}
-    </group>
+        
+        {/* Atmosphere for planets */}
+        {atmosphere && <primitive object={atmosphere} />}
+        
+        {/* Saturn's rings */}
+        {saturnRings && <primitive object={saturnRings} />}
+        
+        {/* Simple highlight effect when focused */}
+        {isFocused && (
+          <Sphere args={[radius * 1.1, 32, 32]}>
+            <meshBasicMaterial 
+              color="#4FC3F7" 
+              transparent={true}
+              opacity={0.2}
+              wireframe={true}
+            />
+          </Sphere>
+        )}
+      </group>
+    </>
   );
 };
 

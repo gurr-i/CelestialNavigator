@@ -60,24 +60,26 @@ const SpaceScene = () => {
     return () => clearTimeout(timeout);
   }, [setLoaded]);
 
+  // Store the object references for all bodies to use in dynamic tracking
+  const bodyRefs = useRef<{[key: string]: THREE.Vector3}>({});
+  
+  // Initialize body positions
+  useEffect(() => {
+    SOLAR_SYSTEM.forEach(body => {
+      bodyRefs.current[body.id] = new THREE.Vector3(
+        body.position[0],
+        body.position[1],
+        body.position[2]
+      );
+    });
+  }, []);
+  
   // Update camera target when focused body changes
   useEffect(() => {
     if (focusedBody) {
       const bodyData = SOLAR_SYSTEM.find(body => body.id === focusedBody);
       if (bodyData) {
-        // Account for the body's current orbital position
-        if (bodyData.orbitRadius && bodyData.orbitSpeed && bodyData.orbitCenter) {
-          const time = Date.now() * bodyData.orbitSpeed * 0.001;
-          const x = bodyData.orbitCenter[0] + Math.cos(time) * bodyData.orbitRadius;
-          const z = bodyData.orbitCenter[2] + Math.sin(time) * bodyData.orbitRadius;
-          targetRef.current.set(x, bodyData.position[1], z);
-        } else {
-          targetRef.current.set(
-            bodyData.position[0],
-            bodyData.position[1],
-            bodyData.position[2]
-          );
-        }
+        // We'll update the target in the render loop to follow the orbiting body
         
         // Adjust orbit speed based on the body type
         if (bodyData.type === "star") {
@@ -96,8 +98,25 @@ const SpaceScene = () => {
   }, [focusedBody]);
 
   // Handle camera controls
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!cameraRef.current) return;
+    
+    // Update the target position for the focused body if it's orbiting
+    if (focusedBody) {
+      const bodyData = SOLAR_SYSTEM.find(body => body.id === focusedBody);
+      if (bodyData && bodyData.orbitSpeed && bodyData.orbitRadius && bodyData.orbitCenter) {
+        // Use the clock for consistent orbit animation
+        const time = state.clock.getElapsedTime() * bodyData.orbitSpeed * 5;
+        const x = bodyData.orbitCenter[0] + Math.cos(time) * bodyData.orbitRadius;
+        const z = bodyData.orbitCenter[2] + Math.sin(time) * bodyData.orbitRadius;
+        
+        // Update the target for the camera to look at
+        targetRef.current.set(x, bodyData.position[1], z);
+        
+        // Store this position for other calculations
+        bodyRefs.current[bodyData.id] = new THREE.Vector3(x, bodyData.position[1], z);
+      }
+    }
     
     // Create a vector pointing from camera to target
     const cameraDirection = new THREE.Vector3();
@@ -139,20 +158,18 @@ const SpaceScene = () => {
           // Position camera at an appropriate distance from the body
           const distance = (bodyData.radius || 1) * 5 + cameraDistance;
           
-          // Calculate the current position of orbiting bodies
-          let posX = bodyData.position[0];
-          let posZ = bodyData.position[2];
-          
-          if (bodyData.orbitRadius && bodyData.orbitSpeed && bodyData.orbitCenter) {
-            const time = Date.now() * bodyData.orbitSpeed * 0.001;
-            posX = bodyData.orbitCenter[0] + Math.cos(time) * bodyData.orbitRadius;
-            posZ = bodyData.orbitCenter[2] + Math.sin(time) * bodyData.orbitRadius;
-          }
+          // Get current position (may be updated from orbit)
+          const bodyPosition = bodyRefs.current[bodyData.id] || 
+                              new THREE.Vector3(
+                                bodyData.position[0], 
+                                bodyData.position[1], 
+                                bodyData.position[2]
+                              );
           
           cameraRef.current.position.set(
-            posX + distance,
-            bodyData.position[1] + distance * 0.5,
-            posZ + distance
+            bodyPosition.x + distance,
+            bodyPosition.y + distance * 0.5,
+            bodyPosition.z + distance
           );
         }
       } else {
