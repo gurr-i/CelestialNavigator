@@ -263,8 +263,8 @@ const SpaceScene = () => {
       <pointLight position={[100, 50, 100]} intensity={0.8} color="#FFFFFF" />
       <pointLight position={[-100, -50, -100]} intensity={0.8} color="#FFFFFF" />
       
-      {/* Stars background */}
-      <Stars radius={1000} depth={50} count={7000} factor={4} saturation={0} fade />
+      {/* Enhanced stars background with depth */}
+      <Stars radius={1500} depth={500} count={15000} size={2.5} layered={true} />
       
       {/* Render all celestial bodies */}
       {SOLAR_SYSTEM.map(body => (

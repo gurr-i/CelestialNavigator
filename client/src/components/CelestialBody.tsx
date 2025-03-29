@@ -80,19 +80,21 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   
   // Create materials with proper fallbacks
   const material = useMemo(() => {
+    const isMissingTexture = !texture || texture.image?.width < 20;
+    
     if (type === "star") {
       return new THREE.MeshStandardMaterial({
-        map: texture,
+        map: isMissingTexture ? null : texture,
         emissive: new THREE.Color("#FFA726"),
         emissiveIntensity: 1,
-        color: texture ? 0xffffff : getFallbackMaterial()
+        color: isMissingTexture ? getFallbackMaterial() : 0xffffff
       });
     } else {
       return new THREE.MeshStandardMaterial({
-        map: texture,
+        map: isMissingTexture ? null : texture,
         roughness: 0.7,
         metalness: 0.2,
-        color: texture ? 0xffffff : getFallbackMaterial()
+        color: isMissingTexture ? getFallbackMaterial() : 0xffffff
       });
     }
   }, [texture, type]);
