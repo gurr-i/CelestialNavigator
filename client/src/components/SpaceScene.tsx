@@ -8,6 +8,7 @@ import {
 } from "@react-three/drei";
 import * as THREE from "three";
 import CelestialBody from "./CelestialBody";
+import SpacecraftModel from "./SpacecraftModel";
 import Spacecraft from "./Spacecraft";
 import { useSpaceStore } from "../lib/stores/useSpaceStore";
 import { SOLAR_SYSTEM } from "../assets/planet-data";
@@ -287,7 +288,50 @@ const SpaceScene = () => {
         />
       ))}
       
-      {/* Add spacecraft */}
+      {/* Add spacecraft models */}
+      <SpacecraftModel 
+        id="iss"
+        name="ISS"
+        type="spacecraft"
+        position={[0, 0, 0]}
+        radius={0.5}
+        rotationSpeed={0.01}
+        orbitSpeed={0.6}
+        orbitRadius={8}
+        orbitCenter={[70, 0, 0]} // Earth's position
+        eccentricity={0.001}
+        orbitTilt={0.8}
+      />
+      
+      <SpacecraftModel 
+        id="jwst"
+        name="James Webb Space Telescope"
+        type="spacecraft"
+        position={[0, 0, 0]}
+        radius={0.6}
+        rotationSpeed={0.005}
+        orbitSpeed={0.05}
+        orbitRadius={20}
+        orbitCenter={[70, 0, 0]} // Around Earth's orbit
+        eccentricity={0.1}
+        orbitTilt={0.2}
+      />
+      
+      <SpacecraftModel 
+        id="voyager"
+        name="Voyager"
+        type="spacecraft"
+        position={[0, 0, 0]}
+        radius={0.4}
+        rotationSpeed={0.008}
+        orbitSpeed={0.01}
+        orbitRadius={300}
+        orbitCenter={[0, 0, 0]} // Far from the Sun
+        eccentricity={0.2}
+        orbitTilt={0.35}
+      />
+      
+      {/* Original generic spacecraft model */}
       <Spacecraft position={[50, 10, 30]} />
     </>
   );

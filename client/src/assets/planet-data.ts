@@ -263,5 +263,21 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     eccentricity: 0.1,    // Slightly elliptical to maintain L2 point
     orbitTilt: 0.2,       // Inclined orbit around L2
     description: "The James Webb Space Telescope orbits around the Sun-Earth L2 point, 1.5 million km from Earth, with a 6-month orbital period in a complex 'halo' pattern."
+  },
+  
+  // Voyager Spacecraft
+  {
+    id: "voyager",
+    name: "Voyager",
+    type: "spacecraft",
+    position: [300, 20, 150],
+    radius: 0.4,
+    rotationSpeed: 0.008,
+    orbitSpeed: 0.01,     // Very slow orbit far from the Sun
+    orbitRadius: 300,
+    orbitCenter: [0, 0, 0], // Far from the Sun
+    eccentricity: 0.2,
+    orbitTilt: 0.35,      // Voyager's trajectory takes it out of the ecliptic plane
+    description: "The Voyager spacecraft (Voyager 1 and 2) are space probes launched in 1977 that have now traveled beyond our solar system into interstellar space, making them the most distant human-made objects."
   }
 ];
