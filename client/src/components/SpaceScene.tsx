@@ -264,7 +264,7 @@ const SpaceScene = () => {
       <pointLight position={[-100, -50, -100]} intensity={0.8} color="#FFFFFF" />
       
       {/* Enhanced stars background with depth */}
-      <Stars radius={1500} depth={500} count={15000} size={2.5} layered={true} />
+      <Stars radius={1500} depth={500} count={15000} />
       
       {/* Render all celestial bodies */}
       {SOLAR_SYSTEM.map(body => (
@@ -281,6 +281,9 @@ const SpaceScene = () => {
           orbitSpeed={body.orbitSpeed}
           orbitRadius={body.orbitRadius}
           orbitCenter={body.orbitCenter}
+          eccentricity={body.eccentricity}
+          orbitTilt={body.orbitTilt}
+          axialTilt={body.axialTilt}
         />
       ))}
       

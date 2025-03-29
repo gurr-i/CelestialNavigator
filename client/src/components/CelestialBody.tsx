@@ -16,7 +16,10 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   rotationSpeed = 0.001,
   orbitSpeed = 0,
   orbitRadius = 0,
-  orbitCenter = [0, 0, 0]
+  orbitCenter = [0, 0, 0],
+  eccentricity = 0,
+  orbitTilt = 0,
+  axialTilt = 0
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const focusedBody = useSpaceStore(state => state.focusedBody);
@@ -139,31 +142,38 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   // Create orbit path geometry
   const orbitPath = useMemo(() => {
     if (orbitSpeed > 0 && orbitRadius > 0) {
-      // Determine orbit plane based on the body type
-      let orbitAngle = 0;
+      // Get orbital parameters or use defaults
+      const e = eccentricity || 0;  // Eccentricity (0 = circle, approaches 1 = more elliptical)
+      const tilt = orbitTilt || 0;  // Inclination of the orbital plane
       
-      // Add slight inclination for different planets to avoid intersections
-      if (id === "mercury") orbitAngle = 0.12;
-      else if (id === "venus") orbitAngle = 0.05;
-      else if (id === "earth") orbitAngle = 0;
-      else if (id === "mars") orbitAngle = -0.03;
-      else if (id === "jupiter") orbitAngle = 0.02;
-      else if (id === "saturn") orbitAngle = -0.05;
-      else if (id === "uranus") orbitAngle = 0.08;
-      else if (id === "neptune") orbitAngle = -0.06;
-      else if (id === "pluto") orbitAngle = 0.17;
+      // Calculate semi-major and semi-minor axes for the ellipse
+      const semiMajor = orbitRadius;
+      const semiMinor = orbitRadius * Math.sqrt(1 - e*e);
+      
+      // Calculate the center offset for the ellipse (focus is at one focal point)
+      const centerOffset = e * semiMajor;
       
       // Create points for a 3D elliptical path
       const points = [];
-      const segments = 100;
+      const segments = 200; // More segments for smoother ellipses
       
       for (let i = 0; i <= segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
-        const x = orbitCenter[0] + Math.cos(angle) * orbitRadius;
-        const y = orbitCenter[1] + Math.sin(angle) * Math.sin(orbitAngle) * orbitRadius;
-        const z = orbitCenter[2] + Math.sin(angle) * Math.cos(orbitAngle) * orbitRadius;
         
-        points.push(new THREE.Vector3(x, y, z));
+        // Parametric equation of an ellipse (r = a(1-e²)/(1+e·cos θ))
+        const r = (semiMajor * (1 - e*e)) / (1 + e * Math.cos(angle));
+        
+        // Calculate base position in orbital plane
+        let x = orbitCenter[0] + r * Math.cos(angle);
+        let y = 0;
+        let z = orbitCenter[2] + r * Math.sin(angle);
+        
+        // Apply orbital tilt (rotation around x-axis)
+        const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
+        const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
+        
+        // Create the point
+        points.push(new THREE.Vector3(x, y1, z1));
       }
       
       // Create a smooth curve from the points
@@ -172,17 +182,22 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       
       // Create geometry from the curve
       const pathGeometry = new THREE.BufferGeometry().setFromPoints(
-        curve.getPoints(100)
+        curve.getPoints(200)
       );
       
-      // Color based on body type
+      // Color based on body type with more vivid colors
       let pathColor = '#555555';
       let pathOpacity = 0.3;
+      let pathWidth = 1.2;
       
       if (type === 'moon' || type === 'spacecraft') {
         pathColor = '#4FC3F7';
-        pathOpacity = 0.5;
+        pathOpacity = 0.6;
+        pathWidth = 1.8;
       } else if (type === 'planet') {
+        pathOpacity = 0.7;
+        pathWidth = 1.5;
+        
         // Assign different colors to different planets
         if (id === "mercury") pathColor = '#A6A6A6';  // Gray
         else if (id === "venus") pathColor = '#E8A735';  // Yellowish
@@ -203,50 +218,79 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
             color={pathColor}
             opacity={pathOpacity} 
             transparent={true} 
-            linewidth={1.5}
+            linewidth={pathWidth}
           />
         </line>
       );
     }
     return null;
-  }, [orbitCenter, orbitRadius, orbitSpeed, type, id]);
+  }, [orbitCenter, orbitRadius, orbitSpeed, eccentricity, orbitTilt, type, id]);
 
   // Handle orbiting and rotation
   useFrame((state, delta) => {
     if (!meshRef.current) return;
     
-    // Rotate the body around its axis
-    meshRef.current.rotation.y += rotationSpeed * delta * 10;
+    // Handle axial tilt and rotation
+    if (axialTilt) {
+      // Set the axial tilt (this should only happen once)
+      if (!meshRef.current.userData.axialTiltApplied) {
+        // Apply the axial tilt
+        const tiltAxis = new THREE.Vector3(0, 0, 1); // Default tilt axis
+        const tiltAngle = axialTilt || 0;
+        
+        // Use the Quaternion system for rotation
+        const tiltQuaternion = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAngle);
+        meshRef.current.quaternion.premultiply(tiltQuaternion);
+        
+        // Mark as applied
+        meshRef.current.userData.axialTiltApplied = true;
+      }
+    }
+    
+    // Rotate the body around its axis using delta time for smooth animation
+    if (rotationSpeed) {
+      // Create a rotation axis that respects the axial tilt
+      const rotationAxis = new THREE.Vector3(0, 1, 0);
+      
+      // Apply rotation
+      meshRef.current.rotateOnAxis(rotationAxis, rotationSpeed * delta * 10);
+    }
     
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
+      // Get orbital parameters or use defaults
+      const e = eccentricity || 0;  // Eccentricity (0 = circle, approaches 1 = more elliptical)
+      const tilt = orbitTilt || 0;  // Inclination of the orbital plane
+      
       // Use elapsed time from the clock for consistent animation
       const time = state.clock.getElapsedTime() * orbitSpeed * 5; // Increased speed multiplier
       
-      // Determine orbit plane based on the body type
-      // Each planet gets a slightly different orbit plane to avoid collisions
-      let orbitAngle = 0;
+      // Calculate position along elliptical orbit
+      // Using the polar form of an ellipse equation: r = a(1-e²)/(1+e·cos θ)
+      const angle = time;
+      const semiMajor = orbitRadius;
+      const r = (semiMajor * (1 - e*e)) / (1 + e * Math.cos(angle));
       
-      // Add slight inclination for different planets to avoid intersections
-      if (id === "mercury") orbitAngle = 0.12;
-      else if (id === "venus") orbitAngle = 0.05;
-      else if (id === "earth") orbitAngle = 0;
-      else if (id === "mars") orbitAngle = -0.03;
-      else if (id === "jupiter") orbitAngle = 0.02;
-      else if (id === "saturn") orbitAngle = -0.05;
-      else if (id === "uranus") orbitAngle = 0.08;
-      else if (id === "neptune") orbitAngle = -0.06;
-      else if (id === "pluto") orbitAngle = 0.17;
+      // Calculate base position in orbital plane
+      let x = orbitCenter[0] + r * Math.cos(angle);
+      let y = 0;
+      let z = orbitCenter[2] + r * Math.sin(angle);
       
-      // Calculate orbit position with inclination
-      const x = orbitCenter[0] + Math.cos(time) * orbitRadius;
-      const y = orbitCenter[1] + Math.sin(time) * Math.sin(orbitAngle) * orbitRadius;
-      const z = orbitCenter[2] + Math.sin(time) * Math.cos(orbitAngle) * orbitRadius;
+      // Apply orbital tilt (rotation around x-axis)
+      const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
+      const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
       
       // Update position for orbiting
       meshRef.current.position.x = x;
-      meshRef.current.position.y = y;
-      meshRef.current.position.z = z;
+      meshRef.current.position.y = y1;
+      meshRef.current.position.z = z1;
+      
+      // For Saturn, make sure the rings always face slightly upward regardless of orbit
+      if (id === "saturn" && meshRef.current.children.length > 0) {
+        // Ensure rings maintain proper orientation
+        meshRef.current.children[0].rotation.x = Math.PI / 2;
+        meshRef.current.children[0].rotation.y = 0.3;
+      }
     }
   });
   

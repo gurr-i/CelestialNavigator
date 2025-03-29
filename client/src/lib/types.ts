@@ -10,6 +10,9 @@ export interface CelestialBodyProps {
   orbitSpeed?: number;
   orbitRadius?: number;
   orbitCenter?: [number, number, number];
+  eccentricity?: number;  // Orbital eccentricity (0 = circle, approaching 1 = very elliptical)
+  orbitTilt?: number;     // Orbit inclination in radians
+  axialTilt?: number;     // Planet's axial tilt in radians
   description?: string;
   temperature?: string;
   diameter?: number;
