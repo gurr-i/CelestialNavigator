@@ -352,6 +352,9 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           // Extract Earth's current position for the ISS to orbit around
           const earthWorldPosition = new THREE.Vector3();
           earthObjects.getWorldPosition(earthWorldPosition);
+          // Update orbit parameters for ISS
+          orbitRadius = 8; // Keep ISS close to Earth
+          orbitSpeed = 0.6; // Make it orbit faster
           effectiveOrbitCenter = [
             earthWorldPosition.x, 
             earthWorldPosition.y, 
