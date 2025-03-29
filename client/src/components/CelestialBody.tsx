@@ -26,7 +26,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   const focusedBody = useSpaceStore(state => state.focusedBody);
   const setFocusedBody = useSpaceStore(state => state.setFocusedBody);
   const setHoveredBody = useSpaceStore(state => state.setHoveredBody);
-  
+
   // Default textures based on planet type
   const getDefaultTexture = () => {
     if (type === "star") return "/textures/sun.jpg";
@@ -43,7 +43,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     // For spacecraft or unknown types
     return null;
   };
-  
+
   // Use fallback color materials if texture can't be loaded
   const getFallbackMaterial = () => {
     if (type === "star") return new THREE.Color("#FFA726"); // Solar orange
@@ -60,10 +60,10 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     // Default for spacecraft or unknown
     return new THREE.Color("#CCCCCC");
   };
-  
+
   // Determine texture URL
   const effectiveTextureUrl = textureUrl || getDefaultTexture();
-  
+
   // Load texture - safely handle loading or fallback
   const texture = useMemo(() => {
     if (!effectiveTextureUrl) return null;
@@ -71,22 +71,22 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       // Create a simple texture for now, which will be replaced when loaded
       const fallbackTexture = new THREE.Texture();
       fallbackTexture.needsUpdate = true;
-      
+
       // Load the actual texture asynchronously
       const loader = new THREE.TextureLoader();
       const loadedTexture = loader.load(effectiveTextureUrl);
-      
+
       return loadedTexture;
     } catch (error) {
       console.warn(`Failed to load texture for ${name}:`, error);
       return null;
     }
   }, [effectiveTextureUrl, name]);
-  
+
   // Create materials with proper fallbacks
   const material = useMemo(() => {
     const isMissingTexture = !texture || texture.image?.width < 20;
-    
+
     if (type === "star") {
       return new THREE.MeshStandardMaterial({
         map: isMissingTexture ? null : texture,
@@ -103,17 +103,17 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       });
     }
   }, [texture, type]);
-  
+
   // Create atmosphere for planets with atmosphere
   const atmosphere = useMemo(() => {
     // Only Earth, Venus, Saturn, Jupiter, Uranus, Neptune have visible atmospheres
     const hasAtmosphere = ["earth", "venus", "jupiter", "saturn", "uranus", "neptune"].includes(id);
-    
+
     if (type === "planet" && hasAtmosphere) {
       // Different atmosphere color based on planet
       let atmosphereColor = "#4FC3F7"; // Default blue
       let atmosphereOpacity = 0.15;
-      
+
       if (id === "venus") {
         atmosphereColor = "#E6C073"; // Yellowish
         atmosphereOpacity = 0.2;
@@ -127,7 +127,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         atmosphereColor = "#334CA5"; // Deep blue
         atmosphereOpacity = 0.15;
       }
-      
+
       return new THREE.Mesh(
         new THREE.SphereGeometry(radius * 1.05, 32, 32),
         new THREE.MeshStandardMaterial({
@@ -140,7 +140,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     }
     return null;
   }, [type, radius, id]);
-  
+
   // Function to calculate position on an elliptical orbit - used for both orbit path and animation
   const calculateEllipticalPosition = (angle: number, params: {
     center: [number, number, number],
@@ -149,20 +149,20 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     tilt: number
   }) => {
     const { center, radius, eccentricity, tilt } = params;
-    
+
     // Calculate position using polar form of ellipse equation: r = a(1-e²)/(1+e·cos θ)
     const semiMajor = radius;
     const r = (semiMajor * (1 - eccentricity*eccentricity)) / (1 + eccentricity * Math.cos(angle));
-    
+
     // Calculate base position in the orbital plane
     let x = center[0] + r * Math.cos(angle);
     let y = 0;
     let z = center[2] + r * Math.sin(angle);
-    
+
     // Apply orbital tilt (rotation around x-axis)
     const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
     const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
-    
+
     return { x, y: y1, z: z1 };
   };
 
@@ -172,10 +172,10 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       // Get orbital parameters
       const e = eccentricity;
       const tilt = orbitTilt;
-      
+
       // Special handling for moons and spacecraft
       let effectiveOrbitCenter: [number, number, number] = [...orbitCenter] as [number, number, number];
-      
+
       // Handle moons/spacecraft that orbit planets
       if (type === 'moon' || id === 'iss') {
         // For Moon and ISS, orbit around Earth
@@ -187,7 +187,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           }
         }
       }
-      
+
       // For JWST, modify the orbit center
       if (id === 'jwst') {
         // Get Earth's position from planet data
@@ -198,7 +198,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           const sunDirection = new THREE.Vector3(0, 0, 0)
             .sub(new THREE.Vector3(earthPos[0], earthPos[1], earthPos[2]))
             .normalize();
-          
+
           // Create a position away from Sun in L2 direction
           effectiveOrbitCenter = [
             earthPos[0] - sunDirection.x * 5, 
@@ -207,7 +207,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           ];
         }
       }
-      
+
       // Create orbit parameters object
       const orbitParams = {
         center: effectiveOrbitCenter,
@@ -215,31 +215,31 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         eccentricity: e,
         tilt: tilt
       };
-      
+
       // Create points for a 3D elliptical path
       const points = [];
       const segments = 200; // More segments for smoother ellipses
-      
+
       for (let i = 0; i <= segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
         const pos = calculateEllipticalPosition(angle, orbitParams);
         points.push(new THREE.Vector3(pos.x, pos.y, pos.z));
       }
-      
+
       // Create a smooth curve from the points
       const curve = new THREE.CatmullRomCurve3(points);
       curve.closed = true;
-      
+
       // Create geometry from the curve
       const pathGeometry = new THREE.BufferGeometry().setFromPoints(
         curve.getPoints(200)
       );
-      
+
       // Color based on body type with more vivid colors
       let pathColor = '#555555';
       let pathOpacity = 0.3;
       let pathWidth = 1.2;
-      
+
       if (type === 'moon' || type === 'spacecraft') {
         pathColor = '#4FC3F7';
         pathOpacity = 0.6;
@@ -247,7 +247,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       } else if (type === 'planet') {
         pathOpacity = 0.7;
         pathWidth = 1.5;
-        
+
         // Assign different colors to different planets
         if (id === "mercury") pathColor = '#A6A6A6';  // Gray
         else if (id === "venus") pathColor = '#E8A735';  // Yellowish
@@ -259,7 +259,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         else if (id === "neptune") pathColor = '#3498DB';  // Blue
         else if (id === "pluto") pathColor = '#BDC3C7';  // Light gray
       }
-      
+
       return (
         <line>
           <bufferGeometry attach="geometry" {...pathGeometry} />
@@ -275,19 +275,30 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     }
     return null;
   }, [orbitCenter, orbitRadius, orbitSpeed, eccentricity, orbitTilt, type, id]);
-  
+
   // Handle initial position alignment with orbit
   const initialPositionRef = useRef<boolean>(false);
-  
+
   // Get time control state
   const isPaused = useSpaceStore(state => state.isPaused);
   const timeScale = useSpaceStore(state => state.timeScale);
   const simulationTime = useSpaceStore(state => state.simulationTime);
 
+  // Function to calculate moon's orbit position
+  const calculateOrbitPosition = (time: number, earthPos: THREE.Vector3): THREE.Vector3 | null => {
+    const orbitRadius = 12; // Adjust as needed
+    const orbitSpeed = 0.5; // Adjust as needed
+    const angle = time * orbitSpeed;
+    const x = earthPos.x + orbitRadius * Math.cos(angle);
+    const y = earthPos.y + orbitRadius * Math.sin(angle);
+    const z = earthPos.z;
+    return new THREE.Vector3(x, y, z);
+  };
+
   // Handle orbiting and rotation
   useFrame((state, delta) => {
     if (!meshRef.current) return;
-    
+
     // Handle axial tilt and rotation
     if (axialTilt) {
       // Set the axial tilt (this should only happen once)
@@ -295,40 +306,40 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         // Apply the axial tilt
         const tiltAxis = new THREE.Vector3(0, 0, 1); // Default tilt axis
         const tiltAngle = axialTilt || 0;
-        
+
         // Use the Quaternion system for rotation
         const tiltQuaternion = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAngle);
         meshRef.current.quaternion.premultiply(tiltQuaternion);
-        
+
         // Mark as applied
         meshRef.current.userData.axialTiltApplied = true;
       }
     }
-    
+
     // Skip updates if simulation is paused
     if (isPaused) return;
-    
+
     // Rotate the body around its axis using delta time and time scale for smooth animation
     if (rotationSpeed) {
       // Create a rotation axis that respects the axial tilt
       const rotationAxis = new THREE.Vector3(0, 1, 0);
-      
+
       // Apply rotation with time scale
       meshRef.current.rotateOnAxis(rotationAxis, rotationSpeed * delta * 10 * timeScale);
     }
-    
+
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
       // Special handling for moons and spacecraft that orbit planets
       let effectiveOrbitCenter: [number, number, number] = [...orbitCenter] as [number, number, number];
-      
+
       // For Moon, find Earth's actual position
       if (id === "moon") {
         // Get Earth from the scene
         const earthObjects = state.scene.children.find(child => 
           child.userData && child.userData.id === "earth"
         );
-        
+
         if (earthObjects) {
           // Extract Earth's current position for the Moon to orbit around
           const earthWorldPosition = new THREE.Vector3();
@@ -341,16 +352,20 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
             earthWorldPosition.y, 
             earthWorldPosition.z
           ] as [number, number, number];
+          const moonPos = calculateOrbitPosition(state.clock.getElapsedTime(), earthWorldPosition);
+          if (moonPos) {
+            meshRef.current.position.copy(moonPos);
+          }
         }
       }
-      
+
       // For ISS, find Earth's actual position
       if (id === "iss") {
         // Get Earth from the scene
         const earthObjects = state.scene.children.find(child => 
           child.userData && child.userData.id === "earth"
         );
-        
+
         if (earthObjects) {
           // Extract Earth's current position for the ISS to orbit around
           const earthWorldPosition = new THREE.Vector3();
@@ -365,14 +380,14 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           ] as [number, number, number];
         }
       }
-      
+
       // For JWST, find Earth's actual position but offset slightly
       if (id === "jwst") {
         // Get Earth from the scene
         const earthObjects = state.scene.children.find(child => 
           child.userData && child.userData.id === "earth"
         );
-        
+
         if (earthObjects) {
           // Extract Earth's current position for JWST to orbit around (with offset)
           const earthWorldPosition = new THREE.Vector3();
@@ -388,20 +403,20 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
           ] as [number, number, number];
         }
       }
-      
+
       const orbitParams = {
         center: effectiveOrbitCenter,
         radius: orbitRadius,
         eccentricity: eccentricity,
         tilt: orbitTilt
       };
-      
+
       // On first render, position the celestial body on its orbit path
       if (!initialPositionRef.current) {
         // Place at a different starting angle based on the body's position in the solar system
         // This creates a more visually interesting starting arrangement
         let initialAngle = 0;
-        
+
         // Different starting angles for different bodies to avoid crowding
         if (id === "mercury") initialAngle = 0;
         else if (id === "venus") initialAngle = 2.0;
@@ -415,7 +430,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         else if (id === "moon") initialAngle = 1.5;
         else if (id === "iss") initialAngle = 0;
         else if (id === "jwst") initialAngle = 3.0;
-        
+
         // Calculate initial position using the angle
         const initialPos = calculateEllipticalPosition(initialAngle, {
           center: effectiveOrbitCenter,
@@ -428,10 +443,10 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         meshRef.current.position.z = initialPos.z;
         initialPositionRef.current = true;
       }
-      
+
       // Use simulation time for consistent animation with time scaling
       const time = simulationTime * orbitSpeed * 5; // Increased speed multiplier
-      
+
       // Calculate elliptical orbit position using the same function as the path generation
       const position = calculateEllipticalPosition(time, {
         center: effectiveOrbitCenter,
@@ -439,15 +454,15 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         eccentricity: eccentricity,
         tilt: orbitTilt
       });
-      
+
       // Update position for orbiting
       meshRef.current.position.x = position.x;
       meshRef.current.position.y = position.y;
       meshRef.current.position.z = position.z;
-      
+
       // Store ID in userData for other bodies to reference
       meshRef.current.userData.id = id;
-      
+
       // For Saturn, make sure the rings always face slightly upward regardless of orbit
       if (id === "saturn" && meshRef.current.children.length > 0) {
         // Ensure rings maintain proper orientation
@@ -456,16 +471,16 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       }
     }
   });
-  
+
   // Handle click to focus on this body
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     setFocusedBody(id);
   };
-  
+
   // Determine if this body is focused for highlighting
   const isFocused = focusedBody === id;
-  
+
   // Special case for Saturn - add rings
   const saturnRings = useMemo(() => {
     if (id === "saturn") {
@@ -476,22 +491,22 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         transparent: true,
         opacity: 0.8
       });
-      
+
       // Rotate the rings to proper orientation
       const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
       ringMesh.rotation.x = Math.PI / 2;
       ringMesh.rotation.y = 0.3;
-      
+
       return ringMesh;
     }
     return null;
   }, [id, radius]);
-  
+
   return (
     <>
       {/* Render orbit path if applicable */}
       {orbitPath && orbitPath}
-      
+
       {/* Use position prop only for bodies that don't orbit (e.g., Sun) */}
       <group position={orbitSpeed > 0 ? [0, 0, 0] : position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
         <Sphere 
@@ -511,13 +526,13 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         >
           <primitive object={material} attach="material" />
         </Sphere>
-        
+
         {/* Atmosphere for planets */}
         {atmosphere && <primitive object={atmosphere} />}
-        
+
         {/* Saturn's rings */}
         {saturnRings && <primitive object={saturnRings} />}
-        
+
         {/* Simple highlight effect when focused */}
         {isFocused && (
           <Sphere args={[radius * 1.1, 32, 32]}>
