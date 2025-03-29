@@ -91,9 +91,10 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     rotationSpeed: 0.001,
     orbitSpeed: 0.4,      // Very fast orbit around Earth (synchronized with Earth's rotation)
     orbitRadius: 10,      // Larger radius to be more visible
-    orbitCenter: [70, 0, 0], // Earth's initial position
+    orbitCenter: [0, 0, 0], // Will be dynamically updated to Earth's position
     eccentricity: 0.055,  // Moon's orbit is slightly elliptical
     orbitTilt: 0.09,      // 5.14 degrees inclination
+    axialTilt: 0.12,      // 6.68 degrees axial tilt relative to its orbital plane
     textureUrl: "/textures/planets/moon.jpg",
     diameter: 3475,
     dayLength: "29.5 Earth days",
@@ -243,7 +244,7 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     rotationSpeed: 0.02,
     orbitSpeed: 0.6,      // Very fast orbit (low Earth orbit)
     orbitRadius: 8,       // Close orbit around Earth
-    orbitCenter: [70, 0, 0], // Earth's initial position
+    orbitCenter: [0, 0, 0], // Will be dynamically updated to Earth's position
     eccentricity: 0.001,  // Nearly circular orbit
     orbitTilt: 0.9,       // 51.6 degrees (ISS orbital inclination)
     description: "The International Space Station is a modular space station in low Earth orbit with an inclination of 51.6 degrees, completing an orbit every 90 minutes."
@@ -259,7 +260,7 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     rotationSpeed: 0.01,
     orbitSpeed: 0.05,     // Similar to Earth's L2 point orbit
     orbitRadius: 20,      // Larger orbit to be more visible
-    orbitCenter: [70, 0, 0], // Around Earth's orbit
+    orbitCenter: [0, 0, 0], // Will be dynamically updated to Earth's L2 point
     eccentricity: 0.1,    // Slightly elliptical to maintain L2 point
     orbitTilt: 0.2,       // Inclined orbit around L2
     description: "The James Webb Space Telescope orbits around the Sun-Earth L2 point, 1.5 million km from Earth, with a 6-month orbital period in a complex 'halo' pattern."

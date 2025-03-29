@@ -4,6 +4,7 @@ import { useTexture, Sphere } from "@react-three/drei";
 import * as THREE from "three";
 import { useSpaceStore } from "../lib/stores/useSpaceStore";
 import { CelestialBodyProps } from "../lib/types";
+import { SOLAR_SYSTEM } from "../assets/planet-data";
 
 const CelestialBody: React.FC<CelestialBodyProps> = ({
   id,
@@ -172,9 +173,44 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       const e = eccentricity;
       const tilt = orbitTilt;
       
+      // Special handling for moons and spacecraft
+      let effectiveOrbitCenter: [number, number, number] = [...orbitCenter] as [number, number, number];
+      
+      // Handle moons/spacecraft that orbit planets
+      if (type === 'moon' || id === 'iss') {
+        // For Moon and ISS, orbit around Earth
+        if (id === 'moon' || id === 'iss') {
+          // Get Earth's position from planet data
+          const earth = SOLAR_SYSTEM.find(body => body.id === 'earth');
+          if (earth) {
+            effectiveOrbitCenter = earth.position;
+          }
+        }
+      }
+      
+      // For JWST, modify the orbit center
+      if (id === 'jwst') {
+        // Get Earth's position from planet data
+        const earth = SOLAR_SYSTEM.find(body => body.id === 'earth');
+        if (earth) {
+          // Position JWST in Earth's L2 point (simplified)
+          const earthPos = [...earth.position];
+          const sunDirection = new THREE.Vector3(0, 0, 0)
+            .sub(new THREE.Vector3(earthPos[0], earthPos[1], earthPos[2]))
+            .normalize();
+          
+          // Create a position away from Sun in L2 direction
+          effectiveOrbitCenter = [
+            earthPos[0] - sunDirection.x * 5, 
+            earthPos[1] - sunDirection.y * 5, 
+            earthPos[2] - sunDirection.z * 5
+          ];
+        }
+      }
+      
       // Create orbit parameters object
       const orbitParams = {
-        center: orbitCenter,
+        center: effectiveOrbitCenter,
         radius: orbitRadius,
         eccentricity: e,
         tilt: tilt
@@ -283,22 +319,84 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
+      // Special handling for moons and spacecraft that orbit planets
+      let effectiveOrbitCenter: [number, number, number] = [...orbitCenter] as [number, number, number];
+      
+      // For Moon, find Earth's actual position
+      if (id === "moon") {
+        // Get Earth from the scene
+        const earthObjects = state.scene.children.find(child => 
+          child.userData && child.userData.id === "earth"
+        );
+        
+        if (earthObjects) {
+          // Extract Earth's current position for the Moon to orbit around
+          const earthWorldPosition = new THREE.Vector3();
+          earthObjects.getWorldPosition(earthWorldPosition);
+          effectiveOrbitCenter = [
+            earthWorldPosition.x, 
+            earthWorldPosition.y, 
+            earthWorldPosition.z
+          ] as [number, number, number];
+        }
+      }
+      
+      // For ISS, find Earth's actual position
+      if (id === "iss") {
+        // Get Earth from the scene
+        const earthObjects = state.scene.children.find(child => 
+          child.userData && child.userData.id === "earth"
+        );
+        
+        if (earthObjects) {
+          // Extract Earth's current position for the ISS to orbit around
+          const earthWorldPosition = new THREE.Vector3();
+          earthObjects.getWorldPosition(earthWorldPosition);
+          effectiveOrbitCenter = [
+            earthWorldPosition.x, 
+            earthWorldPosition.y, 
+            earthWorldPosition.z
+          ] as [number, number, number];
+        }
+      }
+      
+      // For JWST, find Earth's actual position but offset slightly
+      if (id === "jwst") {
+        // Get Earth from the scene
+        const earthObjects = state.scene.children.find(child => 
+          child.userData && child.userData.id === "earth"
+        );
+        
+        if (earthObjects) {
+          // Extract Earth's current position for JWST to orbit around (with offset)
+          const earthWorldPosition = new THREE.Vector3();
+          earthObjects.getWorldPosition(earthWorldPosition);
+          // Add offset in the direction away from the Sun for L2 point
+          const sunDirection = new THREE.Vector3(0, 0, 0).sub(earthWorldPosition).normalize();
+          // Move away from Sun in L2 direction
+          earthWorldPosition.add(sunDirection.multiplyScalar(-5));
+          effectiveOrbitCenter = [
+            earthWorldPosition.x, 
+            earthWorldPosition.y, 
+            earthWorldPosition.z
+          ] as [number, number, number];
+        }
+      }
+      
       const orbitParams = {
-        center: orbitCenter,
+        center: effectiveOrbitCenter,
         radius: orbitRadius,
         eccentricity: eccentricity,
         tilt: orbitTilt
       };
       
-      // On first render, position the planet on its orbit path
-      // We need to do this because the initial positions in planet-data.ts
-      // might not align perfectly with the calculated elliptical orbits
+      // On first render, position the celestial body on its orbit path
       if (!initialPositionRef.current) {
-        // Place at a different starting angle based on the planet's position in the solar system
+        // Place at a different starting angle based on the body's position in the solar system
         // This creates a more visually interesting starting arrangement
         let initialAngle = 0;
         
-        // Different starting angles for different planets to avoid crowding
+        // Different starting angles for different bodies to avoid crowding
         if (id === "mercury") initialAngle = 0;
         else if (id === "venus") initialAngle = 2.0;
         else if (id === "earth") initialAngle = 4.0;
@@ -313,7 +411,12 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         else if (id === "jwst") initialAngle = 3.0;
         
         // Calculate initial position using the angle
-        const initialPos = calculateEllipticalPosition(initialAngle, orbitParams);
+        const initialPos = calculateEllipticalPosition(initialAngle, {
+          center: effectiveOrbitCenter,
+          radius: orbitRadius,
+          eccentricity: eccentricity,
+          tilt: orbitTilt
+        });
         meshRef.current.position.x = initialPos.x;
         meshRef.current.position.y = initialPos.y;
         meshRef.current.position.z = initialPos.z;
@@ -324,12 +427,20 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       const time = simulationTime * orbitSpeed * 5; // Increased speed multiplier
       
       // Calculate elliptical orbit position using the same function as the path generation
-      const position = calculateEllipticalPosition(time, orbitParams);
+      const position = calculateEllipticalPosition(time, {
+        center: effectiveOrbitCenter,
+        radius: orbitRadius,
+        eccentricity: eccentricity,
+        tilt: orbitTilt
+      });
       
       // Update position for orbiting
       meshRef.current.position.x = position.x;
       meshRef.current.position.y = position.y;
       meshRef.current.position.z = position.z;
+      
+      // Store ID in userData for other bodies to reference
+      meshRef.current.userData.id = id;
       
       // For Saturn, make sure the rings always face slightly upward regardless of orbit
       if (id === "saturn" && meshRef.current.children.length > 0) {
