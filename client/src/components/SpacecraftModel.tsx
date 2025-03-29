@@ -4,6 +4,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTF } from "three-stdlib";
 import { CelestialBodyProps } from "../lib/types";
+import { useSpaceStore } from "../lib/stores/useSpaceStore";
 
 // This component will render 3D models for spacecraft
 const SpacecraftModel: React.FC<CelestialBodyProps> = ({
@@ -80,12 +81,20 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
     return { x, y: y1, z: z1 };
   };
 
+  // Get time control state
+  const isPaused = useSpaceStore(state => state.isPaused);
+  const timeScale = useSpaceStore(state => state.timeScale);
+  const simulationTime = useSpaceStore(state => state.simulationTime);
+
   // Handle orbit animation
   useFrame((state, delta) => {
     if (!groupRef.current || !modelLoaded) return;
     
-    // Rotate the model
-    groupRef.current.rotation.y += rotationSpeed * delta * 5;
+    // Skip updates if simulation is paused
+    if (isPaused) return;
+    
+    // Rotate the model with time scale applied
+    groupRef.current.rotation.y += rotationSpeed * delta * 5 * timeScale;
     
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
@@ -113,8 +122,8 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
         initialPositionRef.current = true;
       }
       
-      // Use elapsed time from the clock for consistent animation
-      const time = state.clock.getElapsedTime() * orbitSpeed * 5;
+      // Use simulation time for consistent animation with time scaling
+      const time = simulationTime * orbitSpeed * 5;
       
       // Calculate elliptical orbit position
       const position = calculateEllipticalPosition(time, orbitParams);

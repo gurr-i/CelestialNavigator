@@ -242,6 +242,11 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   // Handle initial position alignment with orbit
   const initialPositionRef = useRef<boolean>(false);
   
+  // Get time control state
+  const isPaused = useSpaceStore(state => state.isPaused);
+  const timeScale = useSpaceStore(state => state.timeScale);
+  const simulationTime = useSpaceStore(state => state.simulationTime);
+
   // Handle orbiting and rotation
   useFrame((state, delta) => {
     if (!meshRef.current) return;
@@ -263,13 +268,16 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       }
     }
     
-    // Rotate the body around its axis using delta time for smooth animation
+    // Skip updates if simulation is paused
+    if (isPaused) return;
+    
+    // Rotate the body around its axis using delta time and time scale for smooth animation
     if (rotationSpeed) {
       // Create a rotation axis that respects the axial tilt
       const rotationAxis = new THREE.Vector3(0, 1, 0);
       
-      // Apply rotation
-      meshRef.current.rotateOnAxis(rotationAxis, rotationSpeed * delta * 10);
+      // Apply rotation with time scale
+      meshRef.current.rotateOnAxis(rotationAxis, rotationSpeed * delta * 10 * timeScale);
     }
     
     // Orbit around center if applicable
@@ -311,8 +319,8 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
         initialPositionRef.current = true;
       }
       
-      // Use elapsed time from the clock for consistent animation
-      const time = state.clock.getElapsedTime() * orbitSpeed * 5; // Increased speed multiplier
+      // Use simulation time for consistent animation with time scaling
+      const time = simulationTime * orbitSpeed * 5; // Increased speed multiplier
       
       // Calculate elliptical orbit position using the same function as the path generation
       const position = calculateEllipticalPosition(time, orbitParams);

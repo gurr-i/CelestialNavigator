@@ -8,6 +8,7 @@ import LoadingScreen from "./components/ui/LoadingScreen";
 import Controls from "./components/ui/Controls";
 import InfoPanel from "./components/ui/InfoPanel";
 import Navigation from "./components/ui/Navigation";
+import TimeControls from "./components/ui/TimeControls";
 
 // Define control keys for navigation
 const controls = [
@@ -64,6 +65,7 @@ function App() {
         <InfoPanel />
         <Controls />
         <Navigation />
+        <TimeControls />
         <LoadingScreen />
       </KeyboardControls>
     </div>

@@ -100,15 +100,24 @@ const SpaceScene = () => {
     }
   }, [focusedBody]);
 
+  // Get time control state
+  const isPaused = useSpaceStore(state => state.isPaused);
+  const timeScale = useSpaceStore(state => state.timeScale);
+  const simulationTime = useSpaceStore(state => state.simulationTime);
+  const incrementSimulationTime = useSpaceStore(state => state.incrementSimulationTime);
+  
   // Handle body positions and keyboard camera controls
   useFrame((state, delta) => {
     if (!cameraRef.current) return;
     
+    // Update simulation time based on delta and time scale
+    incrementSimulationTime(delta);
+    
     // Update the positions of all orbiting bodies for tracking and targeting
     SOLAR_SYSTEM.forEach(bodyData => {
       if (bodyData.orbitSpeed && bodyData.orbitRadius && bodyData.orbitCenter) {
-        // Use the clock for consistent orbit animation
-        const time = state.clock.getElapsedTime() * bodyData.orbitSpeed * 5;
+        // Use the simulation time for consistent orbit animation (affected by time scale)
+        const time = simulationTime * bodyData.orbitSpeed * 5;
         
         // Determine the orbital plane angle from body ID
         let orbitAngle = 0;
