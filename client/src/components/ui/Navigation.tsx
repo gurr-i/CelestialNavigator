@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSpaceStore } from "../../lib/stores/useSpaceStore";
 import { SOLAR_SYSTEM } from "../../assets/planet-data";
 import { cn } from "../../lib/utils";
+import { EducationButton } from "./EducationButton";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -115,15 +116,21 @@ const Navigation = () => {
             })}
           </div>
           
-          <button 
-            onClick={() => setFocusedBody(null)}
-            className={cn(
-              "mt-3 w-full py-2 bg-[#1A237E] hover:bg-[#283593] text-white rounded-md transition-colors",
-              "border border-[#1A237E]"
-            )}
-          >
-            Overview
-          </button>
+          <div className="flex flex-col space-y-2 mt-3">
+            <button 
+              onClick={() => setFocusedBody(null)}
+              className={cn(
+                "w-full py-2 bg-[#1A237E] hover:bg-[#283593] text-white rounded-md transition-colors",
+                "border border-[#1A237E]"
+              )}
+            >
+              Overview
+            </button>
+            
+            <div className="w-full">
+              <EducationButton />
+            </div>
+          </div>
         </div>
       )}
     </div>

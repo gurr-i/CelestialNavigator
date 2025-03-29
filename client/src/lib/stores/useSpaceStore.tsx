@@ -16,6 +16,9 @@ interface SpaceState {
   activeMissionId: string | null;
   currentWaypointIndex: number;
   
+  // Educational content state
+  isEducationalPanelOpen: boolean;
+  
   // Actions
   setFocusedBody: (id: string | null) => void;
   setCameraDistance: (distance: number) => void;
@@ -31,6 +34,10 @@ interface SpaceState {
   // Mission actions
   setActiveMission: (missionId: string | null) => void;
   setCurrentWaypoint: (index: number) => void;
+  
+  // Educational panel actions
+  setEducationalPanelOpen: (isOpen: boolean) => void;
+  toggleEducationalPanel: () => void;
 }
 
 export const useSpaceStore = create<SpaceState>((set) => ({
@@ -48,6 +55,9 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   // Mission state
   activeMissionId: null,
   currentWaypointIndex: 0,
+  
+  // Educational panel state
+  isEducationalPanelOpen: false,
   
   // Action creators
   setFocusedBody: (id) => set({ focusedBody: id }),
@@ -70,4 +80,8 @@ export const useSpaceStore = create<SpaceState>((set) => ({
     simulationTime: 0
   }),
   setCurrentWaypoint: (index) => set({ currentWaypointIndex: index }),
+  
+  // Educational panel actions
+  setEducationalPanelOpen: (isOpen) => set({ isEducationalPanelOpen: isOpen }),
+  toggleEducationalPanel: () => set((state) => ({ isEducationalPanelOpen: !state.isEducationalPanelOpen })),
 }));

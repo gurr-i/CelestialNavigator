@@ -2,6 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect } from "react";
 import { KeyboardControls } from "@react-three/drei";
 import { useAudio } from "./lib/stores/useAudio";
+import { useSpaceStore } from "./lib/stores/useSpaceStore";
 import "@fontsource/inter";
 import SpaceScene from "./components/SpaceScene";
 import LoadingScreen from "./components/ui/LoadingScreen";
@@ -9,6 +10,7 @@ import Controls from "./components/ui/Controls";
 import InfoPanel from "./components/ui/InfoPanel";
 import Navigation from "./components/ui/Navigation";
 import TimeControls from "./components/ui/TimeControls";
+import EducationalPanel from "./components/educational/EducationalPanel";
 
 // Define control keys for navigation
 const controls = [
@@ -25,6 +27,8 @@ const controls = [
 // Main App component
 function App() {
   const { setBackgroundMusic } = useAudio();
+  const isEducationalPanelOpen = useSpaceStore(state => state.isEducationalPanelOpen);
+  const setEducationalPanelOpen = useSpaceStore(state => state.setEducationalPanelOpen);
 
   // Set up background music
   useEffect(() => {
@@ -67,6 +71,10 @@ function App() {
         <Navigation />
         <TimeControls />
         <LoadingScreen />
+        <EducationalPanel 
+          isOpen={isEducationalPanelOpen} 
+          onClose={() => setEducationalPanelOpen(false)} 
+        />
       </KeyboardControls>
     </div>
   );
