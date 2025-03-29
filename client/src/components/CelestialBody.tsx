@@ -139,19 +139,45 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     return null;
   }, [type, radius, id]);
   
+  // Function to calculate position on an elliptical orbit - used for both orbit path and animation
+  const calculateEllipticalPosition = (angle: number, params: {
+    center: [number, number, number],
+    radius: number,
+    eccentricity: number,
+    tilt: number
+  }) => {
+    const { center, radius, eccentricity, tilt } = params;
+    
+    // Calculate position using polar form of ellipse equation: r = a(1-e²)/(1+e·cos θ)
+    const semiMajor = radius;
+    const r = (semiMajor * (1 - eccentricity*eccentricity)) / (1 + eccentricity * Math.cos(angle));
+    
+    // Calculate base position in the orbital plane
+    let x = center[0] + r * Math.cos(angle);
+    let y = 0;
+    let z = center[2] + r * Math.sin(angle);
+    
+    // Apply orbital tilt (rotation around x-axis)
+    const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
+    const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
+    
+    return { x, y: y1, z: z1 };
+  };
+
   // Create orbit path geometry
   const orbitPath = useMemo(() => {
     if (orbitSpeed > 0 && orbitRadius > 0) {
-      // Get orbital parameters or use defaults
-      const e = eccentricity || 0;  // Eccentricity (0 = circle, approaches 1 = more elliptical)
-      const tilt = orbitTilt || 0;  // Inclination of the orbital plane
+      // Get orbital parameters
+      const e = eccentricity;
+      const tilt = orbitTilt;
       
-      // Calculate semi-major and semi-minor axes for the ellipse
-      const semiMajor = orbitRadius;
-      const semiMinor = orbitRadius * Math.sqrt(1 - e*e);
-      
-      // Calculate the center offset for the ellipse (focus is at one focal point)
-      const centerOffset = e * semiMajor;
+      // Create orbit parameters object
+      const orbitParams = {
+        center: orbitCenter,
+        radius: orbitRadius,
+        eccentricity: e,
+        tilt: tilt
+      };
       
       // Create points for a 3D elliptical path
       const points = [];
@@ -159,21 +185,8 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
       
       for (let i = 0; i <= segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
-        
-        // Parametric equation of an ellipse (r = a(1-e²)/(1+e·cos θ))
-        const r = (semiMajor * (1 - e*e)) / (1 + e * Math.cos(angle));
-        
-        // Calculate base position in orbital plane
-        let x = orbitCenter[0] + r * Math.cos(angle);
-        let y = 0;
-        let z = orbitCenter[2] + r * Math.sin(angle);
-        
-        // Apply orbital tilt (rotation around x-axis)
-        const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
-        const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
-        
-        // Create the point
-        points.push(new THREE.Vector3(x, y1, z1));
+        const pos = calculateEllipticalPosition(angle, orbitParams);
+        points.push(new THREE.Vector3(pos.x, pos.y, pos.z));
       }
       
       // Create a smooth curve from the points
@@ -225,7 +238,7 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     }
     return null;
   }, [orbitCenter, orbitRadius, orbitSpeed, eccentricity, orbitTilt, type, id]);
-
+  
   // Handle orbiting and rotation
   useFrame((state, delta) => {
     if (!meshRef.current) return;
@@ -258,32 +271,23 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
     
     // Orbit around center if applicable
     if (orbitSpeed > 0 && orbitRadius > 0) {
-      // Get orbital parameters or use defaults
-      const e = eccentricity || 0;  // Eccentricity (0 = circle, approaches 1 = more elliptical)
-      const tilt = orbitTilt || 0;  // Inclination of the orbital plane
-      
       // Use elapsed time from the clock for consistent animation
       const time = state.clock.getElapsedTime() * orbitSpeed * 5; // Increased speed multiplier
       
-      // Calculate position along elliptical orbit
-      // Using the polar form of an ellipse equation: r = a(1-e²)/(1+e·cos θ)
-      const angle = time;
-      const semiMajor = orbitRadius;
-      const r = (semiMajor * (1 - e*e)) / (1 + e * Math.cos(angle));
+      // Calculate elliptical orbit position using the same function as the path generation
+      const orbitParams = {
+        center: orbitCenter,
+        radius: orbitRadius,
+        eccentricity: eccentricity,
+        tilt: orbitTilt
+      };
       
-      // Calculate base position in orbital plane
-      let x = orbitCenter[0] + r * Math.cos(angle);
-      let y = 0;
-      let z = orbitCenter[2] + r * Math.sin(angle);
-      
-      // Apply orbital tilt (rotation around x-axis)
-      const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
-      const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
+      const position = calculateEllipticalPosition(time, orbitParams);
       
       // Update position for orbiting
-      meshRef.current.position.x = x;
-      meshRef.current.position.y = y1;
-      meshRef.current.position.z = z1;
+      meshRef.current.position.x = position.x;
+      meshRef.current.position.y = position.y;
+      meshRef.current.position.z = position.z;
       
       // For Saturn, make sure the rings always face slightly upward regardless of orbit
       if (id === "saturn" && meshRef.current.children.length > 0) {
