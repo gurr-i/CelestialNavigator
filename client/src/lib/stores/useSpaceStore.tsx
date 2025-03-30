@@ -5,6 +5,7 @@ interface SpaceState {
   focusedBody: string | null;
   hoveredBody: string | null;
   cameraDistance: number;
+  isVRMode: boolean;
   isLoaded: boolean;
   followSpacecraft: boolean;
   
@@ -40,6 +41,7 @@ interface SpaceState {
   // Educational panel actions
   setEducationalPanelOpen: (isOpen: boolean) => void;
   toggleEducationalPanel: () => void;
+  setVRMode: (enabled: boolean) => void;
 }
 
 export const useSpaceStore = create<SpaceState>((set) => ({
@@ -49,6 +51,7 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   cameraDistance: 50,
   isLoaded: false,
   followSpacecraft: false,
+  isVRMode: false,
   
   // Time control state
   isPaused: false,
@@ -88,4 +91,5 @@ export const useSpaceStore = create<SpaceState>((set) => ({
   // Educational panel actions
   setEducationalPanelOpen: (isOpen) => set({ isEducationalPanelOpen: isOpen }),
   toggleEducationalPanel: () => set((state) => ({ isEducationalPanelOpen: !state.isEducationalPanelOpen })),
+  setVRMode: (enabled) => set({ isVRMode: enabled }),
 }));

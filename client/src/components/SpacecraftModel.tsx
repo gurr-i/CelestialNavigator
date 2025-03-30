@@ -96,7 +96,78 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
     // Rotate the model with time scale applied
     groupRef.current.rotation.y += rotationSpeed * delta * 5 * timeScale;
     
-    // Orbit around center if applicable
+    // Find Earth's position for ISS and JWST
+    if ((id === "iss" || id === "jwst") && orbitSpeed > 0 && orbitRadius > 0) {
+      // Get Earth from the scene
+      let earthObject = null;
+      
+      // Try first by searching userData.id
+      earthObject = state.scene.children.find(child => 
+        child.userData && child.userData.id === "earth"
+      );
+      
+      // If not found, try looking through all meshes recursively
+      if (!earthObject) {
+        state.scene.traverse((object) => {
+          if (object.userData && object.userData.id === "earth") {
+            earthObject = object;
+          }
+        });
+      }
+      
+      if (earthObject) {
+        // Extract Earth's current position
+        const earthWorldPosition = new THREE.Vector3();
+        earthObject.getWorldPosition(earthWorldPosition);
+        
+        // Update orbit params with Earth's actual position
+        const orbitParams = {
+          center: [earthWorldPosition.x, earthWorldPosition.y, earthWorldPosition.z] as [number, number, number],
+          radius: orbitRadius,
+          eccentricity: eccentricity,
+          tilt: orbitTilt
+        };
+        
+        // Use simulation time for consistent animation with time scaling
+        const time = simulationTime * orbitSpeed * 5;
+        
+        // Calculate elliptical orbit position
+        const position = calculateEllipticalPosition(time, orbitParams);
+        
+        // Update position for orbiting around Earth
+        groupRef.current.position.x = position.x;
+        groupRef.current.position.y = position.y;
+        groupRef.current.position.z = position.z;
+        
+        // Make spacecraft point in the direction of travel
+        const nextPosition = calculateEllipticalPosition(time + 0.01, orbitParams);
+        const direction = new THREE.Vector3(
+          nextPosition.x - position.x,
+          nextPosition.y - position.y,
+          nextPosition.z - position.z
+        ).normalize();
+        
+        // Set orientation based on orbital movement
+        if (direction.length() > 0) {
+          const lookAtPos = new THREE.Vector3(
+            groupRef.current.position.x + direction.x,
+            groupRef.current.position.y + direction.y,
+            groupRef.current.position.z + direction.z
+          );
+          groupRef.current.lookAt(lookAtPos);
+          
+          // Additional rotation adjustments for specific spacecraft
+          if (id === "iss") {
+            groupRef.current.rotation.x += Math.PI / 2;
+          } else if (id === "jwst") {
+            groupRef.current.rotation.z += Math.PI / 4;
+          }
+        }
+        return;
+      }
+    }
+    
+    // For other spacecraft or if Earth not found, use regular fixed orbit
     if (orbitSpeed > 0 && orbitRadius > 0) {
       const orbitParams = {
         center: orbitCenter,

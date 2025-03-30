@@ -20,7 +20,8 @@ const Stars: React.FC<StarsProps> = ({
   // Create multiple star layers with different properties
   const layers = useMemo(() => {
     const layers = [];
-    const layerCount = layered ? 3 : 1;
+    // Reduced number of layers for better performance
+    const layerCount = layered ? 2 : 1;
     
     for (let l = 0; l < layerCount; l++) {
       const layerRef = useRef<THREE.Points>(null);
@@ -50,42 +51,31 @@ const Stars: React.FC<StarsProps> = ({
         positions[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
         positions[i3 + 2] = r * Math.cos(phi);
         
-        // Realistic star colors (from white to yellow to blue to red)
+        // Simplified color distribution - reduced complexity
         const colorType = Math.random();
-        if (colorType < 0.55) {
+        if (colorType < 0.7) {
           // White to yellow-white (common stars)
           colors[i3] = 0.9 + Math.random() * 0.1;
           colors[i3 + 1] = 0.9 + Math.random() * 0.1;
           colors[i3 + 2] = 0.9;
-        } else if (colorType < 0.85) {
+        } else {
           // Blue-white (hot stars)
           colors[i3] = 0.7 + Math.random() * 0.2;
           colors[i3 + 1] = 0.7 + Math.random() * 0.2;
           colors[i3 + 2] = 0.9 + Math.random() * 0.1;
-        } else if (colorType < 0.95) {
-          // Yellow-orange (cooler stars)
-          colors[i3] = 0.9 + Math.random() * 0.1;
-          colors[i3 + 1] = 0.6 + Math.random() * 0.3;
-          colors[i3 + 2] = 0.4 + Math.random() * 0.2;
-        } else {
-          // Red (coolest stars)
-          colors[i3] = 0.8 + Math.random() * 0.2;
-          colors[i3 + 1] = 0.2 + Math.random() * 0.2;
-          colors[i3 + 2] = 0.2 + Math.random() * 0.1;
         }
         
-        // Vary star sizes within a layer
-        sizes[i] = (0.5 + Math.random()) * layerSize;
+        // Simplified size variation
+        sizes[i] = layerSize;
       }
       
       layerGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       layerGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
       layerGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
       
-      // Create shader material for more realistic stars with individual sizes
+      // Create simpler shader material for better performance
       const starsMaterial = new THREE.ShaderMaterial({
         uniforms: {
-          time: { value: 0 },
           opacity: { value: layerOpacity }
         },
         vertexShader: `
@@ -104,11 +94,7 @@ const Stars: React.FC<StarsProps> = ({
           varying vec3 vColor;
           
           void main() {
-            // Create a circular point with fade
-            float r = length(gl_PointCoord - vec2(0.5, 0.5)) * 2.0;
-            float alpha = 1.0 - smoothstep(0.8, 1.0, r);
-            
-            gl_FragColor = vec4(vColor, alpha * opacity);
+            gl_FragColor = vec4(vColor, opacity);
           }
         `,
         transparent: true,
@@ -127,17 +113,19 @@ const Stars: React.FC<StarsProps> = ({
     return layers;
   }, [count, radius, depth, size, layered]);
   
-  // Animate star layers
+  // Animate star layers - optimized to only update every other frame
+  const frameCounter = useRef(0);
+  
   useFrame((_, delta) => {
+    frameCounter.current++;
+    
+    // Only update rotation every other frame
+    if (frameCounter.current % 2 !== 0) return;
+    
     layers.forEach(layer => {
       if (layer.ref.current) {
         // Update rotation
         layer.ref.current.rotation.y += delta * layer.rotationSpeed;
-        
-        // Update time uniform for any animations in the shader
-        if (layer.material.uniforms && layer.material.uniforms.time) {
-          layer.material.uniforms.time.value += delta;
-        }
       }
     });
   });

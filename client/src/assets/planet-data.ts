@@ -21,14 +21,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Mercury",
     type: "planet",
     position: [35, 0, 0],
-    radius: 2,
+    radius: 1.74, // 38% of Earth's radius (Earth = 4.6)
     rotationSpeed: 0.0005,
-    orbitSpeed: 0.15,     // Much faster for better visualization
+    orbitSpeed: 0.15,     // Faster for better visualization
     orbitRadius: 35,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.205,  // Mercury has the highest eccentricity of the Solar System planets
-    orbitTilt: 0.12,      // 7 degrees in radians
-    axialTilt: 0.01,      // Mercury has very little axial tilt (about 0.03 degrees)
+    orbitTilt: 0.1222,    // 7 degrees in radians
+    axialTilt: 0.0017,    // 0.03 degrees - negligible axial tilt
     textureUrl: "/textures/planets/mercury.jpg",
     diameter: 4879,
     dayLength: "58.7 Earth days",
@@ -43,14 +43,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Venus",
     type: "planet",
     position: [50, 0, 0],
-    radius: 3.8,
+    radius: 4.35, // 95% of Earth's radius
     rotationSpeed: -0.0002, // Retrograde rotation (negative value)
     orbitSpeed: 0.12,     // Faster for better visualization
     orbitRadius: 50,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.007,  // Venus has a nearly circular orbit
-    orbitTilt: 0.05,      // 3.4 degrees in radians
-    axialTilt: 3.1,       // Venus is tilted 177 degrees (effectively retrograde)
+    orbitTilt: 0.0594,    // 3.4 degrees in radians
+    axialTilt: 3.0963,    // 177.4 degrees - retrograde rotation
     textureUrl: "/textures/planets/venus.jpg",
     diameter: 12104,
     dayLength: "243 Earth days",
@@ -65,14 +65,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Earth",
     type: "planet",
     position: [70, 0, 0],
-    radius: 4,
+    radius: 4.6, // Reference size (slightly increased from 4.0)
     rotationSpeed: 0.01,   // Faster rotation to be visible
     orbitSpeed: 0.1,      // Faster for better visualization
     orbitRadius: 70,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.017,  // Earth's orbit is slightly elliptical
     orbitTilt: 0.0,       // Reference plane
-    axialTilt: 0.41,      // 23.5 degrees axial tilt
+    axialTilt: 0.4101,    // 23.5 degrees axial tilt
     textureUrl: "/textures/planets/earth.jpg",
     diameter: 12756,
     dayLength: "24 hours",
@@ -86,15 +86,15 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     id: "moon",
     name: "Moon",
     type: "moon",
-    position: [76, 0, 0],
-    radius: 1.1,
-    rotationSpeed: 0.001,
-    orbitSpeed: 0.4,      // Very fast orbit around Earth (synchronized with Earth's rotation)
-    orbitRadius: 10,      // Larger radius to be more visible
+    position: [0, 0, 0], // Position will be dynamically set based on Earth
+    radius: 1.26, // 27.3% of Earth's radius (Earth = 4.6)
+    rotationSpeed: 0.000001, // Moon is tidally locked - very slow rotation
+    orbitSpeed: 0.1, // Synchronized with lunar month (about 27.3 days)
+    orbitRadius: 10, // Set to match average Earth-Moon distance scaled down
     orbitCenter: [0, 0, 0], // Will be dynamically updated to Earth's position
-    eccentricity: 0.055,  // Moon's orbit is slightly elliptical
-    orbitTilt: 0.09,      // 5.14 degrees inclination
-    axialTilt: 0.12,      // 6.68 degrees axial tilt relative to its orbital plane
+    eccentricity: 0.0549, // Moon's actual orbital eccentricity
+    orbitTilt: 0.089, // 5.14 degrees inclination to ecliptic
+    axialTilt: 0.116, // 6.68 degrees axial tilt relative to its orbital plane
     textureUrl: "/textures/planets/moon.jpg",
     diameter: 3475,
     dayLength: "29.5 Earth days",
@@ -108,14 +108,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Mars",
     type: "planet",
     position: [90, 0, 0],
-    radius: 3.5,
+    radius: 2.45, // 53% of Earth's radius
     rotationSpeed: 0.01,   // Similar to Earth
     orbitSpeed: 0.08,     // Faster for better visualization
     orbitRadius: 90,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.094,  // Mars has a moderately elliptical orbit
-    orbitTilt: -0.03,     // 1.85 degrees in radians
-    axialTilt: 0.45,      // 25.2 degrees axial tilt
+    orbitTilt: 0.0323,    // 1.85 degrees in radians
+    axialTilt: 0.4398,    // 25.2 degrees axial tilt
     textureUrl: "/textures/planets/mars.jpg",
     diameter: 6792,
     dayLength: "24.6 hours",
@@ -130,14 +130,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Jupiter",
     type: "planet",
     position: [130, 0, 0],
-    radius: 8,
+    radius: 11.2, // 11.2 times Earth's radius
     rotationSpeed: 0.02,   // Fast rotation (Jupiter rotates quickly)
     orbitSpeed: 0.06,     // Adjusted for better visualization
     orbitRadius: 130,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.049,  // Jupiter's eccentricity
-    orbitTilt: 0.02,      // 1.3 degrees
-    axialTilt: 0.05,      // 3.13 degrees
+    orbitTilt: 0.0227,    // 1.3 degrees
+    axialTilt: 0.0546,    // 3.13 degrees
     textureUrl: "/textures/planets/jupiter.jpg",
     diameter: 142984,
     dayLength: "9.9 hours",
@@ -152,14 +152,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Saturn",
     type: "planet",
     position: [170, 0, 0],
-    radius: 7,
+    radius: 9.45, // 9.45 times Earth's radius
     rotationSpeed: 0.018,  // Fast rotation
     orbitSpeed: 0.04,     // Adjusted for better visualization
     orbitRadius: 170,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.057,  // Saturn's eccentricity
-    orbitTilt: -0.05,     // 2.49 degrees
-    axialTilt: 0.47,      // 26.7 degrees
+    orbitTilt: 0.0435,    // 2.49 degrees
+    axialTilt: 0.466,     // 26.7 degrees - will affect ring orientation
     textureUrl: "/textures/planets/saturn.jpg",
     diameter: 120536,
     dayLength: "10.7 hours",
@@ -174,14 +174,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Uranus",
     type: "planet",
     position: [200, 0, 0],
-    radius: 5.5,
+    radius: 4.0, // 4.0 times Earth's radius
     rotationSpeed: 0.012,  // Uranus has a unique rotation (on its side)
     orbitSpeed: 0.03,     // Adjusted for better visualization
     orbitRadius: 200,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.046,  // Uranus's eccentricity
-    orbitTilt: 0.08,      // 0.77 degrees
-    axialTilt: 1.71,      // 97.8 degrees (extreme tilt, rotates on its side)
+    orbitTilt: 0.0134,    // 0.77 degrees
+    axialTilt: 1.7064,    // 97.8 degrees (extreme tilt, rotates on its side)
     textureUrl: "/textures/planets/uranus.jpg",
     diameter: 51118,
     dayLength: "17.2 hours",
@@ -196,14 +196,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Neptune",
     type: "planet",
     position: [230, 0, 0],
-    radius: 5.3,
+    radius: 3.88, // 3.88 times Earth's radius
     rotationSpeed: 0.014,
     orbitSpeed: 0.025,    // Adjusted for better visualization
     orbitRadius: 230,
     orbitCenter: [0, 0, 0],
     eccentricity: 0.011,  // Neptune's eccentricity
-    orbitTilt: -0.06,     // 1.77 degrees
-    axialTilt: 0.49,      // 28.3 degrees
+    orbitTilt: 0.0309,    // 1.77 degrees
+    axialTilt: 0.4939,    // 28.3 degrees
     textureUrl: "/textures/planets/neptune.jpg",
     diameter: 49528,
     dayLength: "16.1 hours",
@@ -218,14 +218,14 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Pluto",
     type: "dwarf",
     position: [260, 0, 0],
-    radius: 1,
+    radius: 0.19, // 0.19 times Earth's radius
     rotationSpeed: 0.006,
     orbitSpeed: 0.02,     // Adjusted for better visualization
     orbitRadius: 260,
     orbitCenter: [0, 0, 0],
-    eccentricity: 0.25,   // Pluto has a highly eccentric orbit
-    orbitTilt: 0.17,      // 17 degrees (highest inclination)
-    axialTilt: 2.04,      // 119.5 degrees (extreme tilt)
+    eccentricity: 0.244,  // Pluto has a highly eccentric orbit
+    orbitTilt: 0.2967,    // 17 degrees (highest inclination)
+    axialTilt: 2.0856,    // 119.5 degrees (extreme tilt)
     textureUrl: "/textures/planets/pluto.jpg",
     diameter: 2376,
     dayLength: "6.4 Earth days",
@@ -240,12 +240,12 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "International Space Station",
     type: "spacecraft",
     position: [70, 6, 0],
-    radius: 0.5,         // Make it a bit larger to be more visible
+    radius: 0.4,         // Increased to be visible with placeholder model
     rotationSpeed: 0.02,
-    orbitSpeed: 0.6,      // Very fast orbit (low Earth orbit)
-    orbitRadius: 8,       // Close orbit around Earth
+    orbitSpeed: 1.5,      // Much faster orbit (low Earth orbit)
+    orbitRadius: 7,       // Closer to Earth but visibly separate
     orbitCenter: [0, 0, 0], // Will be dynamically updated to Earth's position
-    eccentricity: 0.001,  // Nearly circular orbit
+    eccentricity: 0.0003, // Nearly circular orbit
     orbitTilt: 0.9,       // 51.6 degrees (ISS orbital inclination)
     description: "The International Space Station is a modular space station in low Earth orbit with an inclination of 51.6 degrees, completing an orbit every 90 minutes."
   },
@@ -256,13 +256,13 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "James Webb Telescope",
     type: "spacecraft",
     position: [100, 10, 30],
-    radius: 0.6,         // Make it a bit larger to be more visible
+    radius: 0.6,         // Increased to be visible with placeholder model
     rotationSpeed: 0.01,
-    orbitSpeed: 0.05,     // Similar to Earth's L2 point orbit
-    orbitRadius: 20,      // Larger orbit to be more visible
+    orbitSpeed: 0.4,     // Increased for better visibility of movement
+    orbitRadius: 25,      // Located at Earth-Sun L2 point
     orbitCenter: [0, 0, 0], // Will be dynamically updated to Earth's L2 point
-    eccentricity: 0.1,    // Slightly elliptical to maintain L2 point
-    orbitTilt: 0.2,       // Inclined orbit around L2
+    eccentricity: 0.0035, // Nearly circular 'halo' orbit around L2
+    orbitTilt: 0.4,       // More visible inclined orbit around L2
     description: "The James Webb Space Telescope orbits around the Sun-Earth L2 point, 1.5 million km from Earth, with a 6-month orbital period in a complex 'halo' pattern."
   },
   
@@ -272,7 +272,7 @@ export const SOLAR_SYSTEM: PlanetData[] = [
     name: "Voyager",
     type: "spacecraft",
     position: [300, 20, 150],
-    radius: 0.4,
+    radius: 0.04,         // Make it visible but to scale
     rotationSpeed: 0.008,
     orbitSpeed: 0.01,     // Very slow orbit far from the Sun
     orbitRadius: 300,

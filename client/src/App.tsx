@@ -12,6 +12,11 @@ import Navigation from "./components/ui/Navigation";
 import TimeControls from "./components/ui/TimeControls";
 import EducationalPanel from "./components/educational/EducationalPanel";
 import PlanetTooltip from "./components/ui/PlanetTooltip";
+import { CameraPresets } from "./components/ui/CameraPresets";
+import { ScreenCapture, ScreenCaptureController } from "./components/ui/ScreenCapture";
+import { TouchControls } from "./components/TouchControls";
+import { VRScene } from "./components/VRScene";
+import { CameraPresetsController } from "./components/ui/CameraPresets";
 
 // Define control keys for navigation
 const controls = [
@@ -31,12 +36,19 @@ function App() {
   const isEducationalPanelOpen = useSpaceStore(state => state.isEducationalPanelOpen);
   const setEducationalPanelOpen = useSpaceStore(state => state.setEducationalPanelOpen);
   const hoveredBody = useSpaceStore(state => state.hoveredBody);
+  const isVRMode = useSpaceStore(state => state.isVRMode);
 
   // Set up background music
   useEffect(() => {
     const bgMusic = new Audio("/sounds/background.mp3");
     bgMusic.loop = true;
     bgMusic.volume = 0.3;
+    
+    // Add error handling
+    bgMusic.addEventListener('error', (e) => {
+      console.error('Error loading background music:', e);
+    });
+    
     setBackgroundMusic(bgMusic);
     
     return () => {
@@ -44,6 +56,10 @@ function App() {
       bgMusic.currentTime = 0;
     };
   }, [setBackgroundMusic]);
+
+  if (isVRMode) {
+    return <VRScene />;
+  }
 
   return (
     <div className="w-full h-full bg-black">
@@ -64,6 +80,9 @@ function App() {
           <color attach="background" args={["#000000"]} />
           <Suspense fallback={null}>
             <SpaceScene />
+            <TouchControls />
+            <CameraPresetsController />
+            <ScreenCaptureController />
           </Suspense>
         </Canvas>
         
@@ -78,6 +97,8 @@ function App() {
           isOpen={isEducationalPanelOpen} 
           onClose={() => setEducationalPanelOpen(false)} 
         />
+        <CameraPresets />
+        <ScreenCapture />
       </KeyboardControls>
     </div>
   );

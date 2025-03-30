@@ -266,15 +266,14 @@ const SpaceScene = () => {
       {/* Ambient light - increased to make planets more visible */}
       <ambientLight intensity={0.5} />
       
-      {/* Sun (central bright light) - increased intensity */}
-      <pointLight position={[0, 0, 0]} intensity={3} color="#FFA726" castShadow />
+      {/* Sun (central bright light) - reduced intensity */}
+      <pointLight position={[0, 0, 0]} intensity={2.5} color="#FFA726" castShadow={false} />
       
-      {/* Additional lights to better illuminate dark areas */}
-      <pointLight position={[100, 50, 100]} intensity={0.8} color="#FFFFFF" />
-      <pointLight position={[-100, -50, -100]} intensity={0.8} color="#FFFFFF" />
+      {/* Reduced additional lights to improve performance */}
+      <pointLight position={[100, 50, 100]} intensity={0.6} color="#FFFFFF" castShadow={false} />
       
-      {/* Enhanced stars background with depth */}
-      <Stars radius={1500} depth={500} count={15000} />
+      {/* Enhanced stars background with reduced count for better performance */}
+      <Stars radius={1500} depth={300} count={5000} />
       
       {/* Render all celestial bodies */}
       {SOLAR_SYSTEM.map(body => (
@@ -307,7 +306,7 @@ const SpaceScene = () => {
         rotationSpeed={0.01}
         orbitSpeed={0.6}
         orbitRadius={8}
-        orbitCenter={[70, 0, 0]} // Earth's position
+        orbitCenter={[0, 0, 0]} /* Earth's position will be found dynamically */
         eccentricity={0.001}
         orbitTilt={0.8}
       />
@@ -321,7 +320,7 @@ const SpaceScene = () => {
         rotationSpeed={0.005}
         orbitSpeed={0.05}
         orbitRadius={20}
-        orbitCenter={[70, 0, 0]} // Around Earth's orbit
+        orbitCenter={[0, 0, 0]} /* Earth's position will be found dynamically */
         eccentricity={0.1}
         orbitTilt={0.2}
       />
