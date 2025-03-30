@@ -106,6 +106,24 @@ const SpaceScene = () => {
   const simulationTime = useSpaceStore(state => state.simulationTime);
   const incrementSimulationTime = useSpaceStore(state => state.incrementSimulationTime);
   
+  // Configure renderer for better performance
+  useEffect(() => {
+    if (gl) {
+      // Set pixel ratio to low value to dramatically improve performance
+      gl.setPixelRatio(Math.min(1.5, window.devicePixelRatio));
+      
+      // Disable memory-intensive features
+      gl.shadowMap.enabled = false;
+      
+      // Optimize WebGL renderer
+      gl.outputColorSpace = THREE.SRGBColorSpace;
+      
+      // Apply optimized parameters
+      gl.info.autoReset = false;
+      gl.info.reset();
+    }
+  }, [gl]);
+  
   // Handle body positions and keyboard camera controls
   useFrame((state, delta) => {
     if (!cameraRef.current) return;
@@ -261,21 +279,25 @@ const SpaceScene = () => {
         minDistance={30}
         maxDistance={1000}
         target={[0, 0, 0]}
+        enableDamping={false}
+        dampingFactor={0.05}
+        screenSpacePanning={false}
+        maxPolarAngle={Math.PI}
+        makeDefault
       />
       
       {/* Ambient light - increased to make planets more visible */}
       <ambientLight intensity={0.5} />
       
       {/* Sun (central bright light) - reduced intensity */}
-      <pointLight position={[0, 0, 0]} intensity={2.5} color="#FFA726" castShadow={false} />
+      <pointLight position={[0, 0, 0]} intensity={1.5} color="#FFA726" castShadow={false} />
       
-      {/* Reduced additional lights to improve performance */}
-      <pointLight position={[100, 50, 100]} intensity={0.6} color="#FFFFFF" castShadow={false} />
+      {/* Removed additional lights for better performance */}
       
-      {/* Enhanced stars background with reduced count for better performance */}
-      <Stars radius={1500} depth={300} count={5000} />
+      {/* Enhanced stars background with dramatically reduced count for performance */}
+      <Stars radius={1000} depth={200} count={1500} factor={3} fade speed={0.5} />
       
-      {/* Render all celestial bodies */}
+      {/* Render all celestial bodies with reduced geometry */}
       {SOLAR_SYSTEM.map(body => (
         <CelestialBody
           key={body.id}

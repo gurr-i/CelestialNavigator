@@ -1,12 +1,11 @@
-import { useRef, useMemo, useEffect, useState, Suspense } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
-import { useTexture, Sphere, useGLTF } from "@react-three/drei";
+import { useTexture, Sphere } from "@react-three/drei";
 import * as THREE from "three";
 import { useSpaceStore } from "../lib/stores/useSpaceStore";
 import { CelestialBodyProps } from "../lib/types";
 import { SOLAR_SYSTEM } from "../assets/planet-data";
-import ISSPlaceholder from "./ISSPlaceholder";
-import JWSTPlaceholder from "./JWSTPlaceholder";
+import { calculateKeplerianPosition } from '../lib/orbital-mechanics';
 
 const CelestialBody: React.FC<CelestialBodyProps> = ({
   id,
@@ -28,1155 +27,589 @@ const CelestialBody: React.FC<CelestialBodyProps> = ({
   const focusedBody = useSpaceStore(state => state.focusedBody);
   const setFocusedBody = useSpaceStore(state => state.setFocusedBody);
   const setHoveredBody = useSpaceStore(state => state.setHoveredBody);
+  const isPaused = useSpaceStore(state => state.isPaused);
+  const timeScale = useSpaceStore(state => state.timeScale);
+  const simulationTime = useSpaceStore(state => state.simulationTime);
 
-  // Set the ID immediately when the component is rendered
+  // Set ID in user data for identification
   useEffect(() => {
     if (meshRef.current) {
       meshRef.current.userData.id = id;
-      console.log(`Set userData.id=${id} for celestial body`);
     }
   }, [id]);
 
-  // Default textures based on planet type
-  const getDefaultTexture = () => {
-    if (type === "star") return "/textures/sun.jpg";
-    if (id === "mercury") return "/textures/planets/mercury.jpg";
-    if (id === "venus") return "/textures/planets/venus.jpg";
-    if (id === "earth") return "/textures/planets/earth.jpg";
-    if (id === "moon") return "/textures/planets/moon.jpg";
-    if (id === "mars") return "/textures/planets/mars.jpg";
-    if (id === "jupiter") return "/textures/planets/jupiter.jpg";
-    if (id === "saturn") return "/textures/planets/saturn.jpg";
-    if (id === "uranus") return "/textures/planets/uranus.jpg";
-    if (id === "neptune") return "/textures/planets/neptune.jpg";
-    if (id === "pluto") return "/textures/planets/pluto.jpg";
-    // For spacecraft or unknown types
-    return null;
-  };
-
-  // Use fallback color materials if texture can't be loaded
-  const getFallbackMaterial = () => {
-    if (type === "star") return new THREE.Color("#FFA726"); // Solar orange
-    if (id === "mercury") return new THREE.Color("#A37B7B"); // Mercury gray-brown
-    if (id === "venus") return new THREE.Color("#E6C073"); // Venus yellow-white
-    if (id === "earth") return new THREE.Color("#4B6CB7"); // Earth blue
-    if (id === "moon") return new THREE.Color("#BFBFBF"); // Moon gray
-    if (id === "mars") return new THREE.Color("#C75D48"); // Mars reddish
-    if (id === "jupiter") return new THREE.Color("#E0B080"); // Jupiter beige
-    if (id === "saturn") return new THREE.Color("#E8D8A0"); // Saturn beige-yellow
-    if (id === "uranus") return new THREE.Color("#99CCCC"); // Uranus blue-green
-    if (id === "neptune") return new THREE.Color("#334CA5"); // Neptune blue
-    if (id === "pluto") return new THREE.Color("#D9C6B0"); // Pluto beige
-    // Default for spacecraft or unknown
-    return new THREE.Color("#CCCCCC");
-  };
-
-  // Determine texture URL
-  const effectiveTextureUrl = textureUrl || getDefaultTexture();
-
-  // Load texture - safely handle loading or fallback
+  // Create texture and basic material
   const texture = useMemo(() => {
-    if (!effectiveTextureUrl) return null;
+    const url = textureUrl || `${import.meta.env.BASE_URL}textures/planets/${id}.jpg`;
     try {
-      // Create a simple texture for now, which will be replaced when loaded
-      const fallbackTexture = new THREE.Texture();
-      fallbackTexture.needsUpdate = true;
-
-      // Load the actual texture asynchronously
       const loader = new THREE.TextureLoader();
-      const loadedTexture = loader.load(effectiveTextureUrl);
-
-      return loadedTexture;
+      return loader.load(url);
     } catch (error) {
-      console.warn(`Failed to load texture for ${name}:`, error);
+      console.warn(`Failed to load texture for ${name}`);
       return null;
     }
-  }, [effectiveTextureUrl, name]);
+  }, [id, name, textureUrl]);
 
-  // Load normal/bump map for planets to enhance surface details
-  const normalMap = useMemo(() => {
-    // Only load normal maps for rocky bodies or those with distinct surface features
-    if (!["moon", "mercury", "venus", "earth", "mars", "pluto"].includes(id)) return null;
-    
-    try {
-      // Specific normal maps for different bodies
-      let normalMapUrl = "";
-      
-      if (id === "moon") normalMapUrl = "/textures/planets/moon_normal.jpg";
-      else if (id === "mercury") normalMapUrl = "/textures/planets/mercury_normal.jpg";
-      else if (id === "venus") normalMapUrl = "/textures/planets/venus_normal.jpg";
-      else if (id === "earth") normalMapUrl = "/textures/planets/earth_normal.jpg";
-      else if (id === "mars") normalMapUrl = "/textures/planets/mars_normal.jpg";
-      else if (id === "pluto") normalMapUrl = "/textures/planets/pluto_normal.jpg";
-      else return null;
-      
-      const loader = new THREE.TextureLoader();
-      return loader.load(normalMapUrl, undefined, undefined, (error) => {
-        console.warn(`Failed to load ${id} normal map, falling back to regular texture`);
-      });
-    } catch (error) {
-      return null;
-    }
-  }, [id]);
-
-  // Create materials with proper fallbacks
-  const material = useMemo(() => {
-    const isMissingTexture = !texture || texture.image?.width < 20;
-
-    if (type === "star") {
-      // Enhanced Sun material with realistic properties
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        emissive: new THREE.Color("#FFA726"),
-        emissiveIntensity: 1.0,
-        emissiveMap: texture, // Use texture for emission pattern
-        color: isMissingTexture ? getFallbackMaterial() : 0xffffff,
-        transparent: false, // Ensure the sun is not transparent
-        opacity: 1.0
-      });
-    } else if (id === "mercury") {
-      // Mercury - cratered, airless body with high metallic content
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        normalMap: normalMap,
-        normalScale: new THREE.Vector2(0.7, 0.7),
-        roughness: 0.85,
-        metalness: 0.4, // Higher metallic content
-        color: isMissingTexture ? getFallbackMaterial() : 0xeeeeee
-      });
-    } else if (id === "venus") {
-      // Venus - thick clouds, high temperature, yellowish appearance
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        normalMap: normalMap,
-        normalScale: new THREE.Vector2(0.2, 0.2), // Subtle normals due to cloud cover
-        roughness: 0.6,
-        metalness: 0.1,
-        color: isMissingTexture ? getFallbackMaterial() : 0xffffdd
-      });
-    } else if (id === "earth") {
-      // Earth - ocean, land, clouds, with subtle self-illumination for night side
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        normalMap: normalMap,
-        normalScale: new THREE.Vector2(0.8, 0.8),
-        roughness: 0.6,
-        metalness: 0.1,
-        emissive: new THREE.Color("#334455"), // Subtle nighttime lights
-        emissiveIntensity: 0.1,
-        color: isMissingTexture ? getFallbackMaterial() : 0xffffff
-      });
-    } else if (id === "moon") {
-      // Special material for moon with realistic properties
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        normalMap: normalMap,
-        normalScale: new THREE.Vector2(0.8, 0.8),
-        bumpMap: isMissingTexture ? null : texture,
-        bumpScale: 0.04,
-        roughness: 0.9,
-        metalness: 0.1,
-        emissive: new THREE.Color("#111111"),
-        emissiveIntensity: 0.03,
-        color: isMissingTexture ? getFallbackMaterial() : 0xDDDDDD
-      });
-    } else if (id === "mars") {
-      // Mars - reddish, dusty, with polar caps and notable features
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        normalMap: normalMap,
-        normalScale: new THREE.Vector2(1.0, 1.0), // Strong surface detail
-        roughness: 0.9,
-        metalness: 0.1,
-        color: isMissingTexture ? getFallbackMaterial() : 0xffccbb // Slight reddish tint
-      });
-    } else if (id === "jupiter") {
-      // Jupiter - gas giant with bands and Great Red Spot
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        roughness: 0.75,
-        metalness: 0.0,
-        color: isMissingTexture ? getFallbackMaterial() : 0xfff5e0
-      });
-    } else if (id === "saturn") {
-      // Saturn - similar to Jupiter but more muted
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        roughness: 0.8,
-        metalness: 0.0,
-        color: isMissingTexture ? getFallbackMaterial() : 0xfffce0
-      });
-    } else if (id === "uranus") {
-      // Uranus - ice giant with smooth, bluish appearance
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        roughness: 0.6,
-        metalness: 0.1,
-        color: isMissingTexture ? getFallbackMaterial() : 0xe0f5ff
-      });
-    } else if (id === "neptune") {
-      // Neptune - ice giant with deeper blue and more visible features
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        roughness: 0.65,
-        metalness: 0.1,
-        color: isMissingTexture ? getFallbackMaterial() : 0xc0e0ff
-      });
-    } else if (id === "pluto") {
-      // Pluto - icy, small with distinctive reddish-brown regions
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        normalMap: normalMap,
-        normalScale: new THREE.Vector2(0.5, 0.5),
-        roughness: 0.85,
-        metalness: 0.0,
-        color: isMissingTexture ? getFallbackMaterial() : 0xf0e0d0
-      });
-    } else if (type === "spacecraft") {
-      // Generic spacecraft material - metallic with high specularity
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        roughness: 0.3,
-        metalness: 0.8,
-        emissive: new THREE.Color("#223344"), // Subtle equipment lights
-        emissiveIntensity: 0.2,
-        color: isMissingTexture ? getFallbackMaterial() : 0xdddddd
-      });
-    } else {
-      // Default material for any other bodies
-      return new THREE.MeshStandardMaterial({
-        map: isMissingTexture ? null : texture,
-        roughness: 0.7,
-        metalness: 0.2,
-        color: isMissingTexture ? getFallbackMaterial() : 0xffffff
-      });
-    }
-  }, [texture, type, id, normalMap]);
-
-  // Create atmosphere for planets with atmosphere
+  // Create simple atmosphere
   const atmosphere = useMemo(() => {
-    // Only Earth, Venus, Saturn, Jupiter, Uranus, Neptune have visible atmospheres
-    const hasAtmosphere = ["earth", "venus", "jupiter", "saturn", "uranus", "neptune", "titan"].includes(id);
-
-    // Special case for the Sun - create a glow effect
-    if (type === "star" || id === "sun") {
-      // Create a larger sphere for the glow effect
-      const glowSize = 1.03; // Reduced from 1.1 to 1.03 (just 3% larger than the sun)
-      const glowGeometry = new THREE.SphereGeometry(radius * glowSize, 64, 64);
-      const glowMaterial = new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#FFA726"),
-        transparent: true,
-        opacity: 0.15, // Reduced from 0.2 to 0.15
-        side: THREE.BackSide,
-        blending: THREE.AdditiveBlending
-      });
+    if (type === "star" || ["venus", "jupiter", "saturn"].includes(id)) {
+      const color = type === "star" ? "#FFA726" : "#4FC3F7";
+      const atmosphereRadius = radius * 1.05;
       
-      return new THREE.Mesh(glowGeometry, glowMaterial);
-    }
-
-    if ((type === "planet" || type === "moon") && hasAtmosphere) {
-      // Different atmosphere color and properties based on planet
-      let atmosphereColor = "#4FC3F7"; // Default blue
-      let atmosphereOpacity = 0.15;
-      let atmosphereSize = 1.05; // Default atmosphere size multiplier
-
-      if (id === "earth") {
-        atmosphereColor = "#4FC3F7"; // Blue atmosphere
-        atmosphereOpacity = 0.18;
-        atmosphereSize = 1.05;
-      } else if (id === "venus") {
-        atmosphereColor = "#E6C073"; // Thick yellowish atmosphere
-        atmosphereOpacity = 0.3;     // More opaque due to dense atmosphere
-        atmosphereSize = 1.08;       // Thicker atmosphere
-      } else if (id === "jupiter") {
-        atmosphereColor = "#E0B080"; // Gas giant atmosphere
-        atmosphereOpacity = 0.15;
-        atmosphereSize = 1.04;
-      } else if (id === "saturn") {
-        atmosphereColor = "#E8D8A0"; // Gas giant atmosphere, yellowish
-        atmosphereOpacity = 0.15;
-        atmosphereSize = 1.04;
-      } else if (id === "uranus") {
-        atmosphereColor = "#B4D0CF"; // Blue-green
-        atmosphereOpacity = 0.15;
-        atmosphereSize = 1.04;
-      } else if (id === "neptune") {
-        atmosphereColor = "#334CA5"; // Deep blue
-        atmosphereOpacity = 0.15;
-        atmosphereSize = 1.04;
-      } else if (id === "titan") {
-        atmosphereColor = "#E09060"; // Titan's orangish haze
-        atmosphereOpacity = 0.25;
-        atmosphereSize = 1.07;
-      }
-
       return new THREE.Mesh(
-        new THREE.SphereGeometry(radius * atmosphereSize, 64, 64), // Higher resolution
-        new THREE.MeshStandardMaterial({
-          color: atmosphereColor,
+        new THREE.SphereGeometry(atmosphereRadius, 32, 16),
+        new THREE.MeshBasicMaterial({
+          color: color,
           transparent: true,
-          opacity: atmosphereOpacity,
-          side: THREE.BackSide,
-          depthWrite: false  // Prevent z-fighting
+          opacity: 0.2,
+          side: THREE.BackSide
         })
       );
     }
+    
+    // Enhanced Earth atmosphere with clouds
+    if (id === "earth") {
+      // Create a more vibrant glow atmosphere
+      const atmosphereGlow = new THREE.Mesh(
+        new THREE.SphereGeometry(radius * 1.15, 32, 16),
+        new THREE.MeshBasicMaterial({
+          color: "#88c1ff", // More vibrant blue
+          transparent: true,
+          opacity: 0.15,
+          side: THREE.BackSide
+        })
+      );
+      
+      // Create cloud layer
+      const cloudsMaterial = new THREE.MeshStandardMaterial({
+        map: new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}textures/planets/earth_clouds.jpg`),
+        transparent: true,
+        opacity: 0.8,
+        roughness: 1.0,
+        metalness: 0.0,
+      });
+      
+      const cloudsRadius = radius * 1.02;
+      const cloudsSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(cloudsRadius, 48, 24),
+        cloudsMaterial
+      );
+      
+      // Add clouds as a child of atmosphere
+      atmosphereGlow.add(cloudsSphere);
+      
+      // Assign cloud rotation data
+      cloudsSphere.userData.isEarthClouds = true;
+      
+      return atmosphereGlow;
+    }
+    
     return null;
-  }, [type, radius, id]);
+  }, [radius, type, id]);
 
-  // Function to calculate position on an elliptical orbit - used for both orbit path and animation
-  const calculateEllipticalPosition = (angle: number, params: {
-    center: [number, number, number],
-    radius: number,
-    eccentricity: number,
-    tilt: number
-  }) => {
-    const { center, radius, eccentricity, tilt } = params;
+  // Create simple material
+  const material = useMemo(() => {
+    if (type === "star") {
+      return new THREE.MeshBasicMaterial({
+        map: texture,
+        color: texture ? 0xffffff : 0xFFA726
+      });
+    } else if (id === "earth") {
+      // Enhanced Earth material with normal map and specular highlights
+      const normalMap = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}textures/planets/earth_normal.jpg`);
+      const specularMap = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}textures/planets/earth_specular.jpg`);
+      const nightMap = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}textures/planets/earth_night.jpg`);
+      
+      // Custom shader material for Earth with day/night cycle
+      const earthShader = {
+        uniforms: {
+          dayTexture: { value: texture },
+          nightTexture: { value: nightMap },
+          normalMap: { value: normalMap },
+          specularMap: { value: specularMap },
+          sunDirection: { value: new THREE.Vector3(1, 0, 0) }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+          
+          void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D dayTexture;
+          uniform sampler2D nightTexture;
+          uniform sampler2D normalMap;
+          uniform sampler2D specularMap;
+          uniform vec3 sunDirection;
+          
+          varying vec2 vUv;
+          varying vec3 vNormal;
+          varying vec3 vPosition;
+          
+          void main() {
+            // Get normal from normal map and apply to surface normal
+            vec3 normal = normalize(vNormal);
+            vec3 normalMapValue = texture2D(normalMap, vUv).xyz * 2.0 - 1.0;
+            normal = normalize(normal + normalMapValue * 0.8);
+            
+            // Calculate day/night mix factor based on angle to sun
+            // Higher values when normal points toward sun (day side)
+            float dayMix = dot(normal, normalize(sunDirection));
+            
+            // Create smooth transition between day and night
+            // Adjust these values to control twilight zone width
+            float twilightStart = -0.15;  // Start of twilight (night->day transition)
+            float twilightEnd = 0.15;    // End of twilight (full day)
+            dayMix = smoothstep(twilightStart, twilightEnd, dayMix);
+            
+            // Get colors from day and night textures
+            vec3 dayColor = texture2D(dayTexture, vUv).rgb;
+            vec3 nightColor = texture2D(nightTexture, vUv).rgb * 2.0;
+            
+            // Add specular highlight on day side
+            float specular = texture2D(specularMap, vUv).r;
+            float specHighlight = pow(max(0.0, dot(normalize(reflect(-sunDirection, normal)), normalize(-vPosition))), 20.0) * specular;
+            
+            // Add atmosphere rim effect
+            float rim = 1.0 - max(0.0, dot(normalize(-vPosition), normal));
+            rim = pow(rim, 2.0) * 0.15;
+            vec3 rimColor = vec3(0.5, 0.7, 1.0);
+            
+            // Blend day and night textures based on sun angle
+            vec3 color = mix(nightColor, dayColor, dayMix);
+            
+            // Add specular highlights only on day side
+            color += specHighlight * dayMix * 0.5;
+            
+            // Add rim lighting (slightly more on day side)
+            color += rim * rimColor * (dayMix * 0.5 + 0.5);
+            
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `
+      };
+      
+      const earthMaterial = new THREE.ShaderMaterial(earthShader);
+      earthMaterial.needsUpdate = true;
+      
+      return earthMaterial;
+    } else {
+      return new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.7,
+        metalness: 0.1,
+        color: texture ? 0xffffff : 0xCCCCCC
+      });
+    }
+  }, [texture, type, id]);
 
-    // Calculate position using polar form of ellipse equation: r = a(1-e²)/(1+e·cos θ)
-    const semiMajor = radius;
-    const r = (semiMajor * (1 - eccentricity*eccentricity)) / (1 + eccentricity * Math.cos(angle));
+  // Update sun direction in Earth shader
+  useEffect(() => {
+    if (id === "earth" && material instanceof THREE.ShaderMaterial && material.uniforms.sunDirection) {
+      // Calculate direction from Earth to Sun (always at [0,0,0])
+      // We invert the position since we want direction TO the sun, not FROM it
+      const sunDirection = new THREE.Vector3(-position[0], -position[1], -position[2]).normalize();
+      material.uniforms.sunDirection.value = sunDirection;
+    }
+  }, [id, position, material]);
 
-    // Calculate base position in the orbital plane
-    let x = center[0] + r * Math.cos(angle);
-    let y = 0;
-    let z = center[2] + r * Math.sin(angle);
+  // Continuously update Earth shader's sun direction during orbit
+  useFrame((state, delta) => {
+    if (id === "earth" && material instanceof THREE.ShaderMaterial && material.uniforms.sunDirection && meshRef.current) {
+      // Get current world position of Earth
+      const earthPosition = new THREE.Vector3();
+      meshRef.current.getWorldPosition(earthPosition);
+      
+      // Calculate direction vector pointing from Earth to Sun at [0,0,0]
+      const sunDirection = new THREE.Vector3(0, 0, 0).sub(earthPosition).normalize();
+      
+      // Calculate sun direction in object space (shader needs local coordinates)
+      const worldToLocal = new THREE.Matrix4();
+      worldToLocal.copy(meshRef.current.matrixWorld).invert();
+      
+      const localSunDirection = sunDirection.clone().applyMatrix4(worldToLocal).normalize();
+      
+      // Update the shader uniform
+      material.uniforms.sunDirection.value = localSunDirection;
+    }
+  });
 
-    // Apply orbital tilt (rotation around x-axis)
-    const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
-    const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
-
-    return { x, y: y1, z: z1 };
-  };
-
-  // Create orbit path geometry
+  // Create asteroid belt or other particle-based objects
+  const particleField = useMemo(() => {
+    // If not a belt type, return null
+    if (type !== "belt") return null;
+    
+    // Parameters for different belt objects
+    let particleCount = 2000;
+    let innerRadiusFactor = 0.8;
+    let outerRadiusFactor = 1.2;
+    let verticalSpread = 5;
+    let particleColor = "#AA9977"; // Default asteroid color
+    let particleSize = 0.5;
+    let particleOpacity = 0.7;
+    
+    // Custom settings for different objects
+    if (id === "saturn-rings") {
+      particleCount = 10000;
+      innerRadiusFactor = 1.2; // Start from Saturn's surface
+      outerRadiusFactor = 2.2; // Extend outward in a disc
+      verticalSpread = 0.5;   // Very flat disc
+      particleColor = "#E8D8A0"; // Icy yellowish
+      particleSize = 0.3;
+      particleOpacity = 0.9;
+    } else if (id === "kuiper-belt") {
+      particleCount = 5000;
+      innerRadiusFactor = 0.9;
+      outerRadiusFactor = 1.1;
+      verticalSpread = 20;    // Wider spread for Kuiper Belt
+      particleColor = "#BBBBCC"; // Icy bluish
+      particleSize = 0.4;
+      particleOpacity = 0.5;
+    } else if (id === "oort-cloud") {
+      particleCount = 8000;
+      innerRadiusFactor = 0.7;
+      outerRadiusFactor = 1.3;
+      verticalSpread = 100;   // Spherical cloud
+      particleColor = "#AABBCC"; // Very faint blue
+      particleSize = 0.2;
+      particleOpacity = 0.3;
+    }
+    
+    // Create geometry
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    const sizes = [];
+    const colors = [];
+    
+    // Convert hexadecimal color to RGB
+    const color = new THREE.Color(particleColor);
+    
+    // Calculate boundary radii
+    const innerRadius = orbitRadius * innerRadiusFactor;
+    const outerRadius = orbitRadius * outerRadiusFactor;
+    
+    // Generate random particles
+    for (let i = 0; i < particleCount; i++) {
+      let x, y, z;
+      
+      if (id === "saturn-rings") {
+        // Flat ring system
+        const r = innerRadius + Math.random() * (outerRadius - innerRadius);
+        const theta = Math.random() * Math.PI * 2;
+        
+        // Almost flat with tiny vertical variation
+        x = Math.cos(theta) * r;
+        y = (Math.random() - 0.5) * verticalSpread;
+        z = Math.sin(theta) * r;
+        
+        // Apply rotation to match Saturn's tilt
+        const tilt = orbitTilt || 0;
+        const yn = y * Math.cos(tilt) - z * Math.sin(tilt);
+        const zn = y * Math.sin(tilt) + z * Math.cos(tilt);
+        y = yn;
+        z = zn;
+      } else if (id === "oort-cloud") {
+        // Spherical distribution for Oort Cloud
+        const phi = Math.random() * Math.PI * 2;
+        const cosTheta = Math.random() * 2 - 1;
+        const u = Math.random();
+        const theta = Math.acos(cosTheta);
+        const r = outerRadius * Math.cbrt(u); // Cube root for volumetric distribution
+        
+        x = r * Math.sin(theta) * Math.cos(phi);
+        y = r * Math.sin(theta) * Math.sin(phi);
+        z = r * Math.cos(theta);
+      } else {
+        // Standard belt distribution (asteroid belt, Kuiper belt)
+        const r = innerRadius + Math.random() * (outerRadius - innerRadius);
+        const theta = Math.random() * Math.PI * 2;
+        
+        x = Math.cos(theta) * r;
+        y = (Math.random() - 0.5) * verticalSpread;
+        z = Math.sin(theta) * r;
+      }
+      
+      // Add position
+      positions.push(x, y, z);
+      
+      // Random sizes
+      const size = Math.random() * particleSize + 0.1;
+      sizes.push(size);
+      
+      // Add slightly varied colors
+      const colorVariation = 0.1;
+      const vr = Math.random() * colorVariation - colorVariation/2;
+      const vg = Math.random() * colorVariation - colorVariation/2;
+      const vb = Math.random() * colorVariation - colorVariation/2;
+      
+      colors.push(color.r + vr, color.g + vg, color.b + vb);
+    }
+    
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    
+    return { 
+      geometry,
+      size: particleSize,
+      opacity: particleOpacity
+    };
+  }, [id, type, orbitRadius, orbitTilt]);
+  
+  // Function to handle moons orbiting planets
+  useEffect(() => {
+    if (type === "moon" && orbitRadius > 0) {
+      // Find the parent planet
+      let parentId = null;
+      
+      if (id === "moon") parentId = "earth";
+      else if (id === "io" || id === "europa") parentId = "jupiter";
+      else if (id === "titan") parentId = "saturn";
+      
+      // Store parent ID for orbit calculations in useFrame
+      if (meshRef.current && parentId) {
+        meshRef.current.userData.parentId = parentId;
+      }
+    }
+  }, [id, type, orbitRadius]);
+  
+  // Create simplified orbit path with proper elliptical shape
   const orbitPath = useMemo(() => {
     if (orbitSpeed > 0 && orbitRadius > 0) {
-      // Get orbital parameters
-      const e = eccentricity;
-      const tilt = orbitTilt;
-
-      // Special handling for moons and spacecraft
-      let effectiveOrbitCenter: [number, number, number] = [...orbitCenter] as [number, number, number];
-
-      // For Moon, don't render its path here since it needs to be dynamic
-      if (id === 'moon' || id === 'iss' || id === 'jwst') {
-        // Skip path rendering for objects that need dynamic paths
-        return null;
-      }
-
-      // Create orbit parameters object
-      const orbitParams = {
-        center: effectiveOrbitCenter,
-        radius: orbitRadius,
-        eccentricity: e,
-        tilt: tilt
-      };
-
-      // Create points for a 3D elliptical path
+      // Skip orbit paths for objects that get orbits dynamically
+      if (type === "moon") return null;
+      
       const points = [];
-      const segments = 100; // Reduced from 200 for better performance
+      const segments = 100; // More segments for smoother elliptical orbits
+      
+      const params = {
+        center: orbitCenter as [number, number, number],
+        radius: orbitRadius,
+        eccentricity: eccentricity,
+        tilt: orbitTilt
+      };
       
       for (let i = 0; i <= segments; i++) {
         const angle = (i / segments) * Math.PI * 2;
-        const pos = calculateEllipticalPosition(angle, orbitParams);
-        points.push(new THREE.Vector3(pos.x, pos.y, pos.z));
+        const pos = calculateKeplerianPosition(angle, params);
+        points.push(pos);
       }
-
-      // Create a simple curve from the points
-      const curve = new THREE.CatmullRomCurve3(points);
-      curve.closed = true;
-
-      // Create geometry from the curve with fewer points
-      const pathGeometry = new THREE.BufferGeometry().setFromPoints(
-        curve.getPoints(100) // Reduced from 200
-      );
-
-      // Color based on body type with more vivid colors
-      let pathColor = '#555555';
-      let pathOpacity = 0.3;
-      let pathWidth = 1.2;
-
-      if (type === 'moon' || type === 'spacecraft') {
-        pathColor = '#4FC3F7';
-        pathOpacity = 0.6;
-        pathWidth = 1.8;
-      } else if (type === 'planet') {
-        pathOpacity = 0.7;
-        pathWidth = 1.5;
-
-        // Assign different colors to different planets
-        if (id === "mercury") pathColor = '#A6A6A6';  // Gray
-        else if (id === "venus") pathColor = '#E8A735';  // Yellowish
-        else if (id === "earth") pathColor = '#3498DB';  // Blue
-        else if (id === "mars") pathColor = '#C0392B';  // Red
-        else if (id === "jupiter") pathColor = '#E67E22';  // Orange
-        else if (id === "saturn") pathColor = '#F1C40F';  // Yellow
-        else if (id === "uranus") pathColor = '#1ABC9C';  // Teal
-        else if (id === "neptune") pathColor = '#3498DB';  // Blue
-        else if (id === "pluto") pathColor = '#BDC3C7';  // Light gray
-      }
-
+      
       return (
         <line>
-          <bufferGeometry attach="geometry" {...pathGeometry} />
+          <bufferGeometry attach="geometry">
+            <float32BufferAttribute attach="attributes-position" args={[new Float32Array(points.flatMap(p => [p.x, p.y, p.z])), 3]} />
+          </bufferGeometry>
           <lineBasicMaterial 
             attach="material" 
-            color={pathColor}
-            opacity={pathOpacity} 
+            color={type === "dwarf" ? "#AA8866" : "#AAAAAA"}
+            opacity={0.3} 
             transparent={true} 
-            linewidth={pathWidth}
           />
         </line>
       );
     }
     return null;
-  }, [orbitCenter, orbitRadius, orbitSpeed, eccentricity, orbitTilt, type, id]);
-
-  // Handle initial position alignment with orbit
-  const initialPositionRef = useRef<boolean>(false);
-
-  // Get time control state
-  const isPaused = useSpaceStore(state => state.isPaused);
-  const timeScale = useSpaceStore(state => state.timeScale);
-  const simulationTime = useSpaceStore(state => state.simulationTime);
-
-  // Function to calculate moon's orbit position
-  const calculateOrbitPosition = (time: number, earthPos: THREE.Vector3): THREE.Vector3 | null => {
-    const orbitRadius = 12; // Adjust as needed
-    const orbitSpeed = 0.5; // Adjust as needed
-    const angle = time * orbitSpeed;
-    const x = earthPos.x + orbitRadius * Math.cos(angle);
-    const y = earthPos.y + orbitRadius * Math.sin(angle);
-    const z = earthPos.z;
-    return new THREE.Vector3(x, y, z);
-  };
-
-  // Handle orbiting and rotation
+  }, [orbitRadius, orbitSpeed, orbitCenter, orbitTilt, eccentricity, type]);
+  
+  // Handle moon orbit calculations in useFrame
   useFrame((state, delta) => {
-    if (!meshRef.current) return;
+    if (!meshRef.current || isPaused) return;
     
-    // Handle axial tilt and rotation (only needs to happen once)
-    if (axialTilt) {
-      // Set the axial tilt (this should only happen once)
-      if (!meshRef.current.userData.axialTiltApplied) {
-        // Apply the axial tilt
-        const tiltAxis = new THREE.Vector3(0, 0, 1); // Default tilt axis
-        const tiltAngle = axialTilt || 0;
-
-        // Use the Quaternion system for rotation
-        const tiltQuaternion = new THREE.Quaternion().setFromAxisAngle(tiltAxis, tiltAngle);
+    // Rotate the body around its own axis
+    if (rotationSpeed) {
+      // Apply axial tilt if specified
+      if (axialTilt && !meshRef.current.userData.axialTiltApplied) {
+        const tiltAxis = new THREE.Vector3(0, 0, 1);
+        const tiltQuaternion = new THREE.Quaternion().setFromAxisAngle(tiltAxis, axialTilt);
         meshRef.current.quaternion.premultiply(tiltQuaternion);
-
-        // Mark as applied
         meshRef.current.userData.axialTiltApplied = true;
       }
-    }
-
-    // Skip updates if simulation is paused
-    if (isPaused) return;
-    
-    // Performance optimization - update less frequently for objects with slower dynamics
-    let shouldUpdate = true;
-    
-    // Non-essential objects update less frequently based on their update frequency needs
-    if (type === 'planet' && id !== 'earth') {
-      // Slower planets update less frequently
-      if (Math.random() > 0.5) shouldUpdate = false;
-    } else if (id === 'iss' || id === 'jwst') {
-      // These need to update every frame to maintain smooth orbit
-      shouldUpdate = true;
-    } else if (id !== 'moon' && id !== 'earth' && type !== 'star') {
-      // Other objects can update less frequently
-      if (Math.random() > 0.7) shouldUpdate = false;
-    }
-    
-    if (!shouldUpdate) return;
-
-    // Rotate the body around its axis using delta time and time scale for smooth animation
-    if (rotationSpeed) {
-      // Create a rotation axis that respects the axial tilt
+      
+      // Rotate around the tilted axis
       const rotationAxis = new THREE.Vector3(0, 1, 0);
-
-      // Apply rotation with time scale
-      meshRef.current.rotateOnAxis(rotationAxis, rotationSpeed * delta * 10 * timeScale);
-    }
-
-    // Orbit around center if applicable
-    if (orbitSpeed > 0 && orbitRadius > 0) {
-      // Special handling for moons and spacecraft that orbit planets
-      let effectiveOrbitCenter: [number, number, number] = [...orbitCenter] as [number, number, number];
-
-      // For Moon, find Earth's actual position
-      if (id === "moon") {
-        // Get Earth from the scene - try multiple ways to find it
-        let earthObject = null;
-        
-        // Try first by searching userData.id
-        earthObject = state.scene.children.find(child => 
-          child.userData && child.userData.id === "earth"
-        );
-        
-        // If not found, try looking through all meshes recursively
-        if (!earthObject) {
-          state.scene.traverse((object) => {
-            if (object.userData && object.userData.id === "earth") {
-              earthObject = object;
-            }
-          });
-        }
-        
-        if (earthObject) {
-          // Extract Earth's current position for the Moon to orbit around
-          const earthWorldPosition = new THREE.Vector3();
-          earthObject.getWorldPosition(earthWorldPosition);
-          
-          // Real moon orbital parameters
-          // Moon's orbit is inclined by about 5.1 degrees to the ecliptic
-          // Earth-Moon distance is about 384,400 km (scaled down proportionally)
-          // Moon's orbital eccentricity is about 0.0549
-          const moonOrbitRadius = orbitRadius; // Use the value from planet-data
-          const moonOrbitTilt = orbitTilt; // Use the value from planet-data
-          const moonEccentricity = eccentricity; // Use the value from planet-data
-          
-          // Calculate moon's position using proper elliptical orbit
-          const moonTime = simulationTime * orbitSpeed;
-          const moonAngle = moonTime;
-          
-          // Perigee-apogee variation due to eccentricity
-          // r = a(1-e²)/(1+e·cos θ) - standard elliptical orbit equation
-          const semiMajor = moonOrbitRadius;
-          const distanceFromEarth = (semiMajor * (1 - moonEccentricity * moonEccentricity)) / 
-                                   (1 + moonEccentricity * Math.cos(moonAngle));
-          
-          // Calculate moon's position relative to Earth with proper orbital inclination
-          const moonX = earthWorldPosition.x + distanceFromEarth * Math.cos(moonAngle);
-          const moonY = earthWorldPosition.y + distanceFromEarth * Math.sin(moonAngle) * Math.sin(moonOrbitTilt);
-          const moonZ = earthWorldPosition.z + distanceFromEarth * Math.sin(moonAngle) * Math.cos(moonOrbitTilt);
-          
-          // Update moon's position directly
-          meshRef.current.position.set(moonX, moonY, moonZ);
-          
-          // Apply correct scaling for the Moon (scaled relative to Earth)
-          // Real Moon is about 27% the diameter of Earth
-          meshRef.current.scale.set(0.27, 0.27, 0.27);
-          
-          // Skip the standard orbit calculation completely
-          return;
-        } else {
-          console.warn("Earth not found in scene for moon orbit calculation");
-        }
-      }
-
-      // For ISS, find Earth's actual position
-      if (id === "iss") {
-        // Get Earth from the scene - try multiple ways to find it
-        let earthObject = null;
-        
-        // Try first by searching userData.id
-        earthObject = state.scene.children.find(child => 
-          child.userData && child.userData.id === "earth"
-        );
-        
-        // If not found, try looking through all meshes recursively
-        if (!earthObject) {
-          state.scene.traverse((object) => {
-            if (object.userData && object.userData.id === "earth") {
-              earthObject = object;
-            }
-          });
-        }
-
-        if (earthObject) {
-          // Extract Earth's current position for the ISS to orbit around
-          const earthWorldPosition = new THREE.Vector3();
-          earthObject.getWorldPosition(earthWorldPosition);
-          
-          // Calculate ISS's orbit with very fast movement (orbital period ~90 mins)
-          const issTime = simulationTime * orbitSpeed * 5; // Multiply by 5 for faster movement
-          const issAngle = issTime;
-          
-          // Use elliptical orbit equation for ISS position
-          const issOrbitRadius = orbitRadius;
-          const issOrbitTilt = orbitTilt;
-          const issEccentricity = eccentricity;
-          
-          // Calculate ISS position using standard elliptical orbit formula
-          const semiMajor = issOrbitRadius;
-          const distanceFromEarth = (semiMajor * (1 - issEccentricity * issEccentricity)) / 
-                                    (1 + issEccentricity * Math.cos(issAngle));
-          
-          // Calculate position with high inclination (51.6 degrees)
-          const issX = earthWorldPosition.x + distanceFromEarth * Math.cos(issAngle);
-          const issY = earthWorldPosition.y + distanceFromEarth * Math.sin(issAngle) * Math.sin(issOrbitTilt);
-          const issZ = earthWorldPosition.z + distanceFromEarth * Math.sin(issAngle) * Math.cos(issOrbitTilt);
-          
-          // Set ISS position
-          meshRef.current.position.set(issX, issY, issZ);
-          
-          // Store Earth's position for orbit path rendering
-          meshRef.current.userData.earthPosition = earthWorldPosition.clone();
-          
-          // Skip standard orbit calculation
-          return;
-        } else {
-          console.warn("Earth not found in scene for ISS orbit calculation");
-        }
-      }
-
-      // For JWST, find Earth's actual position but offset for L2 point
-      if (id === "jwst") {
-        // Get Earth from the scene - try multiple ways to find it
-        let earthObject = null;
-        let sunObject = null;
-        
-        // Try first by searching userData.id
-        earthObject = state.scene.children.find(child => 
-          child.userData && child.userData.id === "earth"
-        );
-        
-        sunObject = state.scene.children.find(child => 
-          child.userData && child.userData.id === "sun"
-        );
-        
-        // If not found, try looking through all meshes recursively
-        if (!earthObject) {
-          state.scene.traverse((object) => {
-            if (object.userData && object.userData.id === "earth") {
-              earthObject = object;
-            }
-          });
-        }
-        
-        if (!sunObject) {
-          state.scene.traverse((object) => {
-            if (object.userData && object.userData.id === "sun") {
-              sunObject = object;
-            }
-          });
-        }
-
-        if (earthObject) {
-          // Get Earth and Sun positions
-          const earthWorldPosition = new THREE.Vector3();
-          earthObject.getWorldPosition(earthWorldPosition);
-          
-          // Calculate Sun direction (either from Sun object or assumed at origin)
-          let sunDirection;
-          
-          if (sunObject) {
-            const sunWorldPosition = new THREE.Vector3();
-            sunObject.getWorldPosition(sunWorldPosition);
-            sunDirection = earthWorldPosition.clone().sub(sunWorldPosition).normalize();
-          } else {
-            // If Sun not found, assume it's at origin
-            sunDirection = earthWorldPosition.clone().normalize();
+      meshRef.current.rotateOnAxis(rotationAxis, rotationSpeed * delta * timeScale);
+      
+      // Rotate Earth's clouds at a slightly different speed for realism
+      if (id === "earth" && atmosphere) {
+        // Find clouds in atmosphere children
+        atmosphere.children.forEach(child => {
+          if (child.userData.isEarthClouds) {
+            // Rotate clouds slightly faster than Earth for dynamic effect
+            child.rotateOnAxis(rotationAxis, rotationSpeed * 1.2 * delta * timeScale);
           }
+        });
+      }
+    }
+    
+    // Update orbit position
+    if (orbitSpeed > 0 && orbitRadius > 0) {
+      // Check if this is a moon that needs to orbit a planet
+      if (type === "moon" && meshRef.current.userData.parentId) {
+        const parentId = meshRef.current.userData.parentId;
+        
+        // Find parent planet in the scene
+        let parentObject = null;
+        state.scene.traverse((object) => {
+          if (object.userData && object.userData.id === parentId) {
+            parentObject = object;
+          }
+        });
+        
+        if (parentObject) {
+          // Get parent position
+          const parentPosition = new THREE.Vector3();
+          (parentObject as THREE.Object3D).getWorldPosition(parentPosition);
+          
+          // Calculate orbit around parent
+          const time = simulationTime * orbitSpeed;
+          
+          // Keplerian parameters for moon orbit
+          const moonParams = {
+            center: [parentPosition.x, parentPosition.y, parentPosition.z] as [number, number, number],
+            radius: orbitRadius,
+            eccentricity: eccentricity,
+            tilt: orbitTilt
+          };
+          
+          // Calculate position using Keplerian orbit
+          const position = calculateKeplerianPosition(time, moonParams);
+          
+          // Update position
+          meshRef.current.position.copy(position);
+          return; // Exit early since we've set position
+        }
+      }
+      
+      // Handle spacecraft like JWST orbiting at L2 point
+      if (id === "jwst") {
+        // Find Earth in the scene
+        let earthObject = null;
+        state.scene.traverse((object) => {
+          if (object.userData && object.userData.id === "earth") {
+            earthObject = object;
+          }
+        });
+        
+        if (earthObject) {
+          // Get Earth position
+          const earthPosition = new THREE.Vector3();
+          (earthObject as THREE.Object3D).getWorldPosition(earthPosition);
+          
+          // Calculate Sun direction (from origin to Earth, normalized)
+          const sunDirection = earthPosition.clone().normalize();
           
           // L2 point is in the anti-Sun direction from Earth
-          const l2Position = earthWorldPosition.clone().add(
-            sunDirection.clone().multiplyScalar(25) // Scale factor for L2 distance
+          const l2Position = earthPosition.clone().add(
+            sunDirection.clone().multiplyScalar(25)
           );
           
-          // JWST orbits around the L2 point in a halo orbit
-          const jwstTime = simulationTime * orbitSpeed;
-          const jwstAngle = jwstTime;
+          // Orbit around L2 point
+          const time = simulationTime * orbitSpeed;
           
-          // Use planet data for the halo orbit parameters
-          const jwstOrbitRadius = orbitRadius;
-          const jwstOrbitTilt = orbitTilt; // Higher inclination for visibility
-          const jwstEccentricity = eccentricity;
+          // Create a halo orbit around L2
+          const x = l2Position.x + Math.cos(time) * orbitRadius * 0.5;
+          const y = l2Position.y + Math.sin(time) * Math.cos(time) * orbitRadius * 0.3;
+          const z = l2Position.z + Math.sin(time) * orbitRadius * 0.7;
           
-          // Calculate distance from L2 point using elliptical orbit equation
-          const semiMajor = jwstOrbitRadius;
-          const distanceFromL2 = (semiMajor * (1 - jwstEccentricity * jwstEccentricity)) / 
-                                (1 + jwstEccentricity * Math.cos(jwstAngle));
-          
-          // Calculate JWST position in its halo orbit around L2
-          // Use a modified angle calculation to create a more visible halo pattern
-          const jwstX = l2Position.x + distanceFromL2 * Math.cos(jwstAngle);
-          const jwstY = l2Position.y + distanceFromL2 * Math.sin(jwstAngle) * Math.sin(jwstOrbitTilt);
-          const jwstZ = l2Position.z + distanceFromL2 * Math.sin(jwstAngle) * Math.cos(jwstOrbitTilt);
-          
-          // Set JWST position
-          meshRef.current.position.set(jwstX, jwstY, jwstZ);
-          
-          // Store Earth's position and L2 point for orbit path rendering
-          meshRef.current.userData.earthPosition = earthWorldPosition.clone();
-          meshRef.current.userData.l2Position = l2Position.clone();
-          
-          // Skip standard orbit calculation
+          meshRef.current.position.set(x, y, z);
           return;
-        } else {
-          console.warn("Earth not found in scene for JWST orbit calculation");
         }
       }
-
-      const orbitParams = {
-        center: effectiveOrbitCenter,
+      
+      // Standard orbit calculation for non-moons
+      const time = simulationTime * orbitSpeed;
+      
+      // Keplerian parameters
+      const params = {
+        center: orbitCenter as [number, number, number],
         radius: orbitRadius,
         eccentricity: eccentricity,
         tilt: orbitTilt
       };
-
-      // On first render, position the celestial body on its orbit path
-      if (!initialPositionRef.current && id === "moon") {
-        initialPositionRef.current = true; // Mark as initialized to avoid overriding in regular update
-        console.log("Initializing Moon position - skipping default positioning");
-        // We'll let the regular update handle moon positioning
-        return;
-      } else if (!initialPositionRef.current) {
-        console.log(`Initializing ${id} at its starting position`);
-        // Place at a different starting angle based on the body's position in the solar system
-        // This creates a more visually interesting starting arrangement
-        let initialAngle = 0;
-
-        // Different starting angles for different bodies to avoid crowding
-        if (id === "mercury") initialAngle = 0;
-        else if (id === "venus") initialAngle = 2.0;
-        else if (id === "earth") initialAngle = 4.0;
-        else if (id === "mars") initialAngle = 5.5;
-        else if (id === "jupiter") initialAngle = 1.0;
-        else if (id === "saturn") initialAngle = 3.0;
-        else if (id === "uranus") initialAngle = 0.5;
-        else if (id === "neptune") initialAngle = 2.5;
-        else if (id === "pluto") initialAngle = 4.5;
-        else if (id === "iss") initialAngle = 0;
-        else if (id === "jwst") initialAngle = 3.0;
-
-        // Calculate initial position using the angle
-        const initialPos = calculateEllipticalPosition(initialAngle, {
-          center: effectiveOrbitCenter,
-          radius: orbitRadius,
-          eccentricity: eccentricity,
-          tilt: orbitTilt
-        });
-        meshRef.current.position.x = initialPos.x;
-        meshRef.current.position.y = initialPos.y;
-        meshRef.current.position.z = initialPos.z;
-        
-        // Store the ID of this celestial body in userData for identification later
-        meshRef.current.userData.id = id;
-        console.log(`${id} initialized at position:`, meshRef.current.position);
-        initialPositionRef.current = true;
-      }
-
-      // Use simulation time for consistent animation with time scaling
-      const time = simulationTime * orbitSpeed * 5; // Increased speed multiplier
-
-      // Calculate elliptical orbit position using the same function as the path generation
-      const position = calculateEllipticalPosition(time, {
-        center: effectiveOrbitCenter,
-        radius: orbitRadius,
-        eccentricity: eccentricity,
-        tilt: orbitTilt
-      });
-
-      // Update position for orbiting
-      meshRef.current.position.x = position.x;
-      meshRef.current.position.y = position.y;
-      meshRef.current.position.z = position.z;
-
-      // Store ID in userData for other bodies to reference
-      meshRef.current.userData.id = id;
-
-      // For Saturn, make sure the rings always face slightly upward regardless of orbit
-      if (id === "saturn" && meshRef.current.children.length > 0) {
-        // Ensure rings maintain proper orientation
-        meshRef.current.children[0].rotation.x = Math.PI / 2;
-        meshRef.current.children[0].rotation.y = 0.3;
-      }
+      
+      // Calculate position using Keplerian orbit
+      const position = calculateKeplerianPosition(time, params);
+      
+      // Update position
+      meshRef.current.position.copy(position);
     }
   });
 
-  // Handle click to focus on this body
+  // Handle click to focus
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     setFocusedBody(id);
   };
 
-  // Determine if this body is focused for highlighting
   const isFocused = focusedBody === id;
 
-  // Special case for planets with ring systems
-  const planetaryRings = useMemo(() => {
-    // Only Saturn, Uranus, Neptune, and Jupiter have ring systems
-    // Explicitly exclude the Sun ("star" type) and check the id isn't "sun"
-    if (!["saturn", "uranus", "neptune", "jupiter"].includes(id) || type === "star" || id === "sun") {
-      return null;
-    }
-    
-    let ringInnerRadius = 0;
-    let ringOuterRadius = 0;
-    let ringColor = "#FFFFFF";
-    let ringOpacity = 0.8;
-    let ringRotationX = Math.PI / 2; // Default flat ring orientation
-    let ringRotationY = 0; // Additional rotation for tilt
-    
-    if (id === "saturn") {
-      // Saturn's magnificent ring system
-      ringInnerRadius = radius * 1.4;
-      ringOuterRadius = radius * 2.3;
-      ringColor = "#E8D8A0"; // Yellowish
-      ringOpacity = 0.85;
-      ringRotationY = 0.3; // Slight tilt
-    } else if (id === "uranus") {
-      // Uranus has thin, dark rings
-      ringInnerRadius = radius * 1.3;
-      ringOuterRadius = radius * 1.6;
-      ringColor = "#93A1A1"; // Darker, less visible
-      ringOpacity = 0.6;
-      // Uranus rotates on its side, so rings are perpendicular to orbital plane
-      ringRotationX = Math.PI / 2 - 1.7064; // Adjust for extreme axial tilt
-      ringRotationY = 0.1;
-    } else if (id === "neptune") {
-      // Neptune has several thin rings with gaps
-      ringInnerRadius = radius * 1.2;
-      ringOuterRadius = radius * 1.5;
-      ringColor = "#334455"; // Dark blue/gray
-      ringOpacity = 0.5;
-      ringRotationY = 0.2;
-    } else if (id === "jupiter") {
-      // Jupiter has a very faint ring system
-      ringInnerRadius = radius * 1.3;
-      ringOuterRadius = radius * 1.8;
-      ringColor = "#C0B090"; // Dusty color
-      ringOpacity = 0.25; // Very faint but more visible than before
-      ringRotationY = 0.1;
-    }
-    
-    // Create a more detailed ring system by using multiple rings
-    const ringsGroup = new THREE.Group();
-    
-    // Main ring
-    const ringSegments = id === "saturn" ? 128 : 64; // Higher detail for Saturn
-    const ringGeometry = new THREE.RingGeometry(ringInnerRadius, ringOuterRadius, ringSegments);
-    const ringMaterial = new THREE.MeshStandardMaterial({
-      color: ringColor,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: ringOpacity,
-      roughness: 0.8,
-      metalness: 0.1
-    });
-    
-    // For Saturn, add divisions to show ring complexity
-    if (id === "saturn") {
-      // Create textured ring material that doesn't rely on external image
-      const canvasSize = 1024;
-      const ringCanvas = document.createElement('canvas');
-      ringCanvas.width = canvasSize;
-      ringCanvas.height = canvasSize / 8;
-      const ctx = ringCanvas.getContext('2d');
-      
-      if (ctx) {
-        // Fill with base color
-        ctx.fillStyle = '#E8D8A0';
-        ctx.fillRect(0, 0, canvasSize, canvasSize / 8);
-        
-        // Add ring bands
-        const bandCount = 20;
-        for (let i = 0; i < bandCount; i++) {
-          const bandPos = Math.random() * canvasSize;
-          const bandWidth = 5 + Math.random() * 20;
-          const opacity = 0.3 + Math.random() * 0.5;
-          
-          ctx.fillStyle = `rgba(101, 84, 43, ${opacity})`;
-          ctx.fillRect(bandPos, 0, bandWidth, canvasSize / 8);
-        }
-        
-        // Add Cassini division
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(canvasSize * 0.65, 0, canvasSize * 0.05, canvasSize / 8);
-        
-        // Create texture from canvas
-        const ringTexture = new THREE.CanvasTexture(ringCanvas);
-        ringTexture.wrapS = THREE.RepeatWrapping;
-        ringTexture.repeat.set(2, 1);
-        ringMaterial.map = ringTexture;
-        
-        // Add additional ring divisions
-        const divisionPositions = [0.45, 0.65, 0.75];
-        divisionPositions.forEach(pos => {
-          const divStart = ringInnerRadius + (ringOuterRadius - ringInnerRadius) * pos;
-          const divEnd = divStart + (ringOuterRadius - ringInnerRadius) * 0.03;
-          
-          const divGeometry = new THREE.RingGeometry(divStart, divEnd, 128);
-          const divMaterial = new THREE.MeshBasicMaterial({
-            color: "#000000",
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.6
-          });
-          
-          const ringDiv = new THREE.Mesh(divGeometry, divMaterial);
-          ringDiv.rotation.x = ringRotationX;
-          ringDiv.rotation.y = ringRotationY;
-          ringsGroup.add(ringDiv);
-        });
-      }
-    }
-    
-    // For Jupiter, add subtle texture to the rings
-    if (id === "jupiter") {
-      const canvasSize = 512;
-      const ringCanvas = document.createElement('canvas');
-      ringCanvas.width = canvasSize;
-      ringCanvas.height = 32;
-      const ctx = ringCanvas.getContext('2d');
-      
-      if (ctx) {
-        // Create gradient
-        const gradient = ctx.createLinearGradient(0, 0, canvasSize, 0);
-        gradient.addColorStop(0, 'rgba(192, 176, 144, 0.3)');
-        gradient.addColorStop(0.3, 'rgba(192, 176, 144, 0.25)');
-        gradient.addColorStop(0.7, 'rgba(192, 176, 144, 0.2)');
-        gradient.addColorStop(1, 'rgba(192, 176, 144, 0.15)');
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvasSize, 32);
-        
-        // Add subtle dust streaks
-        for (let i = 0; i < 30; i++) {
-          const x = Math.random() * canvasSize;
-          const width = 1 + Math.random() * 3;
-          ctx.fillStyle = `rgba(255, 255, 255, ${0.05 + Math.random() * 0.1})`;
-          ctx.fillRect(x, 0, width, 32);
-        }
-        
-        const ringTexture = new THREE.CanvasTexture(ringCanvas);
-        ringTexture.wrapS = THREE.RepeatWrapping;
-        ringTexture.repeat.set(4, 1);
-        ringMaterial.map = ringTexture;
-      }
-    }
-    
-    const ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
-    ringMesh.rotation.x = ringRotationX;
-    ringMesh.rotation.y = ringRotationY;
-    ringsGroup.add(ringMesh);
-    
-    return ringsGroup;
-  }, [id, radius]);
-
-  // Render spacecraft model if it's a spacecraft
-  const renderSpacecraft = () => {
-    if (type !== "spacecraft") return null;
-    
-    // Use placeholders initially for spacecraft
-    if (id === "iss") {
-      return <ISSPlaceholder />;
-    } else if (id === "jwst") {
-      return <JWSTPlaceholder />;
-    }
-    
-    // For other spacecraft or fallback, use basic sphere with texture
-    return null;
-  };
-
   return (
-    <>
-      {/* Render orbit path if applicable */}
-      {orbitPath && orbitPath}
-
-      {/* Special case for Moon - render dynamic orbit path around Earth */}
-      {id === 'moon' && (
-        <group>
-          {/* This group will move with Earth, rendering path relative to it */}
-          <line>
-            <bufferGeometry attach="geometry">
-              {(() => {
-                // Create moon's orbit path points
-                const points = [];
-                const segments = 100;
-                
-                for (let i = 0; i <= segments; i++) {
-                  const angle = (i / segments) * Math.PI * 2;
-                  
-                  // Calculate position with proper elliptical equation
-                  const distance = (orbitRadius * (1 - eccentricity * eccentricity)) / 
-                                  (1 + eccentricity * Math.cos(angle));
-                  
-                  // Apply orbital tilt
-                  const x = distance * Math.cos(angle);
-                  const y = distance * Math.sin(angle) * Math.sin(orbitTilt);
-                  const z = distance * Math.sin(angle) * Math.cos(orbitTilt);
-                  
-                  points.push(new THREE.Vector3(x, y, z));
-                }
-                
-                // Create a smooth curve
-                const curve = new THREE.CatmullRomCurve3(points);
-                curve.closed = true;
-                
-                // Return points for the buffer geometry
-                return curve.getPoints(segments);
-              })()}
-            </bufferGeometry>
-            <lineBasicMaterial 
-              attach="material" 
-              color="#AAAAAA"
-              opacity={0.4} 
-              transparent={true} 
-              linewidth={1}
-            />
-          </line>
-        </group>
+    <group>
+      {orbitPath}
+      
+      {/* Render particle field if present */}
+      {particleField && (
+        <points>
+          <primitive object={particleField.geometry} attach="geometry" />
+          <pointsMaterial
+            size={particleField.size}
+            sizeAttenuation={true}
+            vertexColors={true}
+            transparent={true}
+            opacity={particleField.opacity}
+          />
+        </points>
       )}
-
-      {/* Special case for ISS - render dynamic orbit path around Earth */}
-      {id === 'iss' && (
-        <group>
-          {(() => {
-            // Only render if we have Earth's position from the useFrame callback
-            if (!meshRef.current || !meshRef.current.userData.earthPosition) return null;
-            
-            const earthPosition = meshRef.current.userData.earthPosition;
-            
-            return (
-              <line>
-                <bufferGeometry attach="geometry">
-                  {(() => {
-                    const points = [];
-                    const segments = 100;
-                    
-                    for (let i = 0; i <= segments; i++) {
-                      const angle = (i / segments) * Math.PI * 2;
-                      
-                      // Calculate position with proper elliptical equation
-                      const distance = (orbitRadius * (1 - eccentricity * eccentricity)) / 
-                                      (1 + eccentricity * Math.cos(angle));
-                      
-                      // Apply high orbital inclination (51.6 degrees)
-                      const x = earthPosition.x + distance * Math.cos(angle);
-                      const y = earthPosition.y + distance * Math.sin(angle) * Math.sin(orbitTilt);
-                      const z = earthPosition.z + distance * Math.sin(angle) * Math.cos(orbitTilt);
-                      
-                      points.push(new THREE.Vector3(x, y, z));
-                    }
-                    
-                    const curve = new THREE.CatmullRomCurve3(points);
-                    curve.closed = true;
-                    
-                    return curve.getPoints(segments);
-                  })()}
-                </bufferGeometry>
-                <lineBasicMaterial 
-                  attach="material" 
-                  color="#55AAFF"
-                  opacity={0.8} 
-                  transparent={true} 
-                  linewidth={2.0}
-                />
-              </line>
-            );
-          })()}
-        </group>
-      )}
-
-      {/* Special case for JWST - render path around L2 point */}
-      {id === 'jwst' && (
-        <group>
-          {(() => {
-            // Only render if we have L2 position from the useFrame callback
-            if (!meshRef.current || !meshRef.current.userData.l2Position) return null;
-            
-            const l2Position = meshRef.current.userData.l2Position;
-            
-            return (
-              <line>
-                <bufferGeometry attach="geometry">
-                  {(() => {
-                    const points = [];
-                    const segments = 100;
-                    
-                    for (let i = 0; i <= segments; i++) {
-                      const angle = (i / segments) * Math.PI * 2;
-                      
-                      // Calculate position with proper elliptical equation
-                      const distance = (orbitRadius * (1 - eccentricity * eccentricity)) / 
-                                      (1 + eccentricity * Math.cos(angle));
-                      
-                      // Apply orbital tilt for halo orbit around L2
-                      const x = l2Position.x + distance * Math.cos(angle);
-                      const y = l2Position.y + distance * Math.sin(angle) * Math.sin(orbitTilt);
-                      const z = l2Position.z + distance * Math.sin(angle) * Math.cos(orbitTilt);
-                      
-                      points.push(new THREE.Vector3(x, y, z));
-                    }
-                    
-                    const curve = new THREE.CatmullRomCurve3(points);
-                    curve.closed = true;
-                    
-                    return curve.getPoints(segments);
-                  })()}
-                </bufferGeometry>
-                <lineBasicMaterial 
-                  attach="material" 
-                  color="#FFAA22"
-                  opacity={0.7} 
-                  transparent={true} 
-                  linewidth={1.5}
-                />
-              </line>
-            );
-          })()}
-        </group>
-      )}
-
-      {/* Use position prop only for bodies that don't orbit (e.g., Sun) */}
-      <group position={orbitSpeed > 0 ? [0, 0, 0] : position} rotation={rotation ? new THREE.Euler(...rotation) : undefined}>
-        {/* Suspense boundary for model loading */}
-        <Suspense fallback={
-          // Show a simple sphere while loading
-          <Sphere 
-            args={[radius, 16, 8]} 
-            ref={meshRef}
-          >
-            <meshStandardMaterial color="#CCCCCC" />
-          </Sphere>
-        }>
-          {/* Render 3D model for spacecraft or fallback to sphere */}
-          {renderSpacecraft() || (
-            <Sphere 
-              args={[radius, 64, 32]} 
-              ref={meshRef} 
-              onClick={handleClick}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                setHoveredBody(id);
-                document.body.style.cursor = 'pointer';
-              }}
-              onPointerOut={(e) => {
-                e.stopPropagation();
-                setHoveredBody(null);
-                document.body.style.cursor = 'auto';
-              }}
-            >
-              <primitive object={material} attach="material" />
+      
+      {/* Render mesh for standard bodies */}
+      {type !== "belt" && (
+        <mesh
+          ref={meshRef}
+          position={position}
+          onClick={handleClick}
+          onPointerOver={() => setHoveredBody(id)}
+          onPointerOut={() => setHoveredBody(null)}
+        >
+          <sphereGeometry args={[radius, 32, 16]} />
+          <primitive object={material} attach="material" />
+          {atmosphere && <primitive object={atmosphere} />}
+          
+          {/* Highlight effect when focused */}
+          {isFocused && (
+            <Sphere args={[radius * 1.1, 16, 8]}>
+              <meshBasicMaterial
+                color="#4FC3F7"
+                transparent={true}
+                opacity={0.2}
+                wireframe={true}
+              />
             </Sphere>
           )}
-        </Suspense>
-
-        {/* Atmosphere for planets */}
-        {atmosphere && <primitive object={atmosphere} />}
-
-        {/* Planetary ring systems */}
-        {planetaryRings && <primitive object={planetaryRings} />}
-
-        {/* Simple highlight effect when focused */}
-        {isFocused && (
-          <Sphere args={[radius * 1.1, 32, 32]}>
-            <meshBasicMaterial 
-              color="#4FC3F7" 
-              transparent={true}
-              opacity={0.2}
-              wireframe={true}
-            />
-          </Sphere>
-        )}
-      </group>
-    </>
+        </mesh>
+      )}
+      
+      {/* For belt objects, add an invisible mesh for clicking/hovering */}
+      {type === "belt" && (
+        <mesh
+          ref={meshRef}
+          position={position}
+          onClick={handleClick}
+          onPointerOver={() => setHoveredBody(id)}
+          onPointerOut={() => setHoveredBody(null)}
+          visible={false}
+        >
+          <sphereGeometry args={[1, 4, 4]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      )}
+    </group>
   );
 };
 

@@ -20,7 +20,7 @@ const TEXTURE_URLS = {
   'planets/pluto.jpg': 'https://www.solarsystemscope.com/textures/download/2k_pluto.jpg',
 };
 
-async function downloadTexture(url, filepath) {
+function downloadTexture(url, filepath) {
   return new Promise((resolve, reject) => {
     const dir = path.dirname(filepath);
     if (!fs.existsSync(dir)) {
@@ -63,4 +63,4 @@ downloadAllTextures().then(() => {
   console.log('All textures downloaded successfully!');
 }).catch((error) => {
   console.error('Error downloading textures:', error);
-});
+}); 

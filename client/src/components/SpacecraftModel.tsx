@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTF } from "three-stdlib";
 import { CelestialBodyProps } from "../lib/types";
 import { useSpaceStore } from "../lib/stores/useSpaceStore";
+import { calculateKeplerianPosition } from '../lib/orbital-mechanics';
 
 // This component will render 3D models for spacecraft
 const SpacecraftModel: React.FC<CelestialBodyProps> = ({
@@ -24,11 +25,11 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
   
   // Get the appropriate model path based on spacecraft ID
   const getModelPath = () => {
-    if (id === "iss") return "/models/iss.glb";
-    if (id === "jwst") return "/models/jwst.glb";
-    if (id === "voyager") return "/models/voyager.glb";
+    if (id === "iss") return `${import.meta.env.BASE_URL}models/iss.glb`;
+    if (id === "jwst") return `${import.meta.env.BASE_URL}models/jwst.glb`;
+    if (id === "voyager") return `${import.meta.env.BASE_URL}models/voyager.glb`;
     // Default fallback
-    return "/models/iss.glb";
+    return `${import.meta.env.BASE_URL}models/iss.glb`;
   };
 
   // Load the 3D model
@@ -56,42 +57,32 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
     }
   }, [model, id]);
 
-  // Function to calculate position on an elliptical orbit
-  const calculateEllipticalPosition = (angle: number, params: {
-    center: [number, number, number],
-    radius: number,
-    eccentricity: number,
-    tilt: number
-  }) => {
-    const { center, radius, eccentricity, tilt } = params;
-    
-    // Calculate position using polar form of ellipse equation: r = a(1-e²)/(1+e·cos θ)
-    const semiMajor = radius;
-    const r = (semiMajor * (1 - eccentricity*eccentricity)) / (1 + eccentricity * Math.cos(angle));
-    
-    // Calculate base position in the orbital plane
-    let x = center[0] + r * Math.cos(angle);
-    let y = 0;
-    let z = center[2] + r * Math.sin(angle);
-    
-    // Apply orbital tilt (rotation around x-axis)
-    const y1 = y * Math.cos(tilt) - z * Math.sin(tilt);
-    const z1 = y * Math.sin(tilt) + z * Math.cos(tilt);
-    
-    return { x, y: y1, z: z1 };
-  };
-
   // Get time control state
   const isPaused = useSpaceStore(state => state.isPaused);
   const timeScale = useSpaceStore(state => state.timeScale);
   const simulationTime = useSpaceStore(state => state.simulationTime);
 
-  // Handle orbit animation
+  // Handle orbit calculation in useFrame
   useFrame((state, delta) => {
-    if (!groupRef.current || !modelLoaded) return;
+    if (!groupRef.current || !modelLoaded || isPaused) return;
     
-    // Skip updates if simulation is paused
-    if (isPaused) return;
+    // Update position if orbiting
+    if (orbitSpeed > 0 && orbitRadius > 0) {
+      const time = simulationTime * orbitSpeed;
+      
+      // Calculate position using Keplerian orbit
+      const params = {
+        center: orbitCenter as [number, number, number],
+        radius: orbitRadius,
+        eccentricity: eccentricity,
+        tilt: orbitTilt
+      };
+      
+      const position = calculateKeplerianPosition(time, params);
+      
+      // Update position
+      groupRef.current.position.copy(position);
+    }
     
     // Rotate the model with time scale applied
     groupRef.current.rotation.y += rotationSpeed * delta * 5 * timeScale;
@@ -131,16 +122,14 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
         // Use simulation time for consistent animation with time scaling
         const time = simulationTime * orbitSpeed * 5;
         
-        // Calculate elliptical orbit position
-        const position = calculateEllipticalPosition(time, orbitParams);
+        // Calculate position
+        const position = calculateKeplerianPosition(time, orbitParams);
         
         // Update position for orbiting around Earth
-        groupRef.current.position.x = position.x;
-        groupRef.current.position.y = position.y;
-        groupRef.current.position.z = position.z;
+        groupRef.current.position.copy(position);
         
         // Make spacecraft point in the direction of travel
-        const nextPosition = calculateEllipticalPosition(time + 0.01, orbitParams);
+        const nextPosition = calculateKeplerianPosition(time + 0.01, orbitParams);
         const direction = new THREE.Vector3(
           nextPosition.x - position.x,
           nextPosition.y - position.y,
@@ -170,7 +159,7 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
     // For other spacecraft or if Earth not found, use regular fixed orbit
     if (orbitSpeed > 0 && orbitRadius > 0) {
       const orbitParams = {
-        center: orbitCenter,
+        center: orbitCenter as [number, number, number],
         radius: orbitRadius,
         eccentricity: eccentricity,
         tilt: orbitTilt
@@ -186,26 +175,22 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
         else if (id === "voyager") initialAngle = 5.0;
         
         // Calculate initial position using the angle
-        const initialPos = calculateEllipticalPosition(initialAngle, orbitParams);
-        groupRef.current.position.x = initialPos.x;
-        groupRef.current.position.y = initialPos.y;
-        groupRef.current.position.z = initialPos.z;
+        const initialPos = calculateKeplerianPosition(initialAngle, orbitParams);
+        groupRef.current.position.copy(initialPos);
         initialPositionRef.current = true;
       }
       
       // Use simulation time for consistent animation with time scaling
       const time = simulationTime * orbitSpeed * 5;
       
-      // Calculate elliptical orbit position
-      const position = calculateEllipticalPosition(time, orbitParams);
+      // Calculate position
+      const position = calculateKeplerianPosition(time, orbitParams);
       
-      // Update position for orbiting
-      groupRef.current.position.x = position.x;
-      groupRef.current.position.y = position.y;
-      groupRef.current.position.z = position.z;
+      // Update position
+      groupRef.current.position.copy(position);
       
       // Make spacecraft point in the direction of travel
-      const nextPosition = calculateEllipticalPosition(time + 0.01, orbitParams);
+      const nextPosition = calculateKeplerianPosition(time + 0.01, orbitParams);
       const direction = new THREE.Vector3(
         nextPosition.x - position.x,
         nextPosition.y - position.y,
@@ -235,9 +220,9 @@ const SpacecraftModel: React.FC<CelestialBodyProps> = ({
   });
 
   // Preload models
-  useGLTF.preload('/models/iss.glb');
-  useGLTF.preload('/models/jwst.glb');
-  useGLTF.preload('/models/voyager.glb');
+  useGLTF.preload(`${import.meta.env.BASE_URL}models/iss.glb`);
+  useGLTF.preload(`${import.meta.env.BASE_URL}models/jwst.glb`);
+  useGLTF.preload(`${import.meta.env.BASE_URL}models/voyager.glb`);
 
   // Return the 3D model
   return (

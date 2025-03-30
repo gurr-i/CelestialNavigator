@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { KeyboardControls } from "@react-three/drei";
 import { useAudio } from "./lib/stores/useAudio";
 import { useSpaceStore } from "./lib/stores/useSpaceStore";
@@ -37,10 +37,22 @@ function App() {
   const setEducationalPanelOpen = useSpaceStore(state => state.setEducationalPanelOpen);
   const hoveredBody = useSpaceStore(state => state.hoveredBody);
   const isVRMode = useSpaceStore(state => state.isVRMode);
+  const [webGLSupported, setWebGLSupported] = useState(true);
+
+  // Check WebGL support
+  useEffect(() => {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    
+    if (!gl) {
+      console.error('WebGL is not supported by your browser or device');
+      setWebGLSupported(false);
+    }
+  }, []);
 
   // Set up background music
   useEffect(() => {
-    const bgMusic = new Audio("/sounds/background.mp3");
+    const bgMusic = new Audio(`${import.meta.env.BASE_URL}sounds/background.mp3`);
     bgMusic.loop = true;
     bgMusic.volume = 0.3;
     
@@ -57,6 +69,24 @@ function App() {
     };
   }, [setBackgroundMusic]);
 
+  if (!webGLSupported) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-black text-white p-8 text-center">
+        <div>
+          <h1 className="text-2xl font-bold mb-4">WebGL Support Required</h1>
+          <p className="mb-4">
+            Celestial Navigator requires WebGL to render 3D graphics. 
+            Your browser or device does not support WebGL.
+          </p>
+          <p>
+            Please try using a modern browser like Chrome, Firefox, or Edge,
+            or check if WebGL is enabled in your browser settings.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (isVRMode) {
     return <VRScene />;
   }
@@ -65,7 +95,8 @@ function App() {
     <div className="w-full h-full bg-black">
       <KeyboardControls map={controls}>
         <Canvas
-          shadows
+          shadows={false}
+          dpr={[0.5, 1]}
           camera={{
             position: [0, 30, 100],
             fov: 45,
@@ -73,8 +104,38 @@ function App() {
             far: 10000
           }}
           gl={{
-            antialias: true,
-            powerPreference: "default"
+            antialias: false,
+            powerPreference: "high-performance",
+            alpha: false,
+            stencil: false,
+            depth: true,
+            failIfMajorPerformanceCaveat: false,
+            precision: "lowp"
+          }}
+          frameloop="demand"
+          performance={{ 
+            min: 0.5,
+            max: 1
+          }}
+          onCreated={({ gl, scene, camera }) => {
+            gl.setPixelRatio(Math.min(1.5, window.devicePixelRatio));
+            
+            console.log('WebGL Renderer Information:', gl.getContextAttributes());
+            
+            const context = gl.getContext();
+            if (context) {
+              console.log('WebGL Version:', context.getParameter(context.VERSION));
+              console.log('WebGL Vendor:', context.getParameter(context.VENDOR));
+              console.log('WebGL Renderer:', context.getParameter(context.RENDERER));
+            }
+            
+            scene.children.forEach(child => {
+              if (child.type === 'AmbientLight' || child.type === 'DirectionalLight') {
+                if ('intensity' in child) {
+                  (child as any).intensity *= 0.8;
+                }
+              }
+            });
           }}
         >
           <color attach="background" args={["#000000"]} />

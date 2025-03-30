@@ -246,6 +246,54 @@ export function calculateBiEllipticTransfer(
   };
 }
 
+/**
+ * Calculate position on elliptical orbit using simplified Kepler's laws
+ * @param time Current time or angle
+ * @param params Object containing orbital parameters
+ * @returns Position as THREE.Vector3
+ */
+export function calculateKeplerianPosition(time: number, params: {
+  center: [number, number, number],
+  radius: number,
+  eccentricity: number,
+  tilt: number
+}): THREE.Vector3 {
+  const { center, radius, eccentricity, tilt } = params;
+  
+  // Mean anomaly (changes linearly with time)
+  const M = time % (Math.PI * 2);
+  
+  // Solve Kepler's equation to get eccentric anomaly (E)
+  // M = E - e * sin(E)
+  let E = M; // Initial guess
+  
+  // Newton-Raphson iteration to find E
+  for(let i = 0; i < 5; i++) {
+    const E_next = E - (E - eccentricity * Math.sin(E) - M) / (1 - eccentricity * Math.cos(E));
+    if (Math.abs(E_next - E) < 1e-6) break; // Convergence check
+    E = E_next;
+  }
+  
+  // Convert eccentric anomaly to true anomaly (f)
+  const cos_f = (Math.cos(E) - eccentricity) / (1 - eccentricity * Math.cos(E));
+  const sin_f = (Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(E)) / (1 - eccentricity * Math.cos(E));
+  const f = Math.atan2(sin_f, cos_f);
+  
+  // Calculate distance from focus (r)
+  const r = radius * (1 - eccentricity * eccentricity) / (1 + eccentricity * Math.cos(f));
+  
+  // Position in orbital plane
+  const x = center[0] + r * Math.cos(f);
+  const y = 0;
+  const z = center[2] + r * Math.sin(f);
+  
+  // Apply orbital inclination (tilt)
+  const y_rotated = y * Math.cos(tilt) - z * Math.sin(tilt);
+  const z_rotated = y * Math.sin(tilt) + z * Math.cos(tilt);
+  
+  return new THREE.Vector3(x, y_rotated, z_rotated);
+}
+
 // Utility to convert an angle in degrees to radians
 export function degToRad(degrees: number): number {
   return degrees * Math.PI / 180;

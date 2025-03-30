@@ -4,7 +4,7 @@ export interface CelestialBodyProps {
   rotation?: [number, number, number];
   radius?: number;
   textureUrl?: string;
-  type: "star" | "planet" | "moon" | "dwarf" | "spacecraft";
+  type: "star" | "planet" | "moon" | "dwarf" | "spacecraft" | "belt";
   name: string;
   rotationSpeed?: number;
   orbitSpeed?: number;
@@ -15,13 +15,13 @@ export interface CelestialBodyProps {
   axialTilt?: number;     // Planet's axial tilt in radians
   description?: string;
   temperature?: string;
-  diameter?: number;
+  diameter?: number | string;  // Can be string for variable sizes like in asteroid belt
   dayLength?: string;
   yearLength?: string;
 }
 
 export interface PlanetData extends CelestialBodyProps {
-  diameter?: number;
+  diameter?: number | string;
   dayLength?: string;
   yearLength?: string;
   temperature?: string;
